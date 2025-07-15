@@ -1,3 +1,7 @@
 @import "tailwindcss";
 
+/* Optional: toggle dot animation */
+input:checked + div .dot {
+  transform: translateX(100%);
+}
 

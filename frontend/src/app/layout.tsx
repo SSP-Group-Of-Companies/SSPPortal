@@ -1,9 +1,10 @@
-// Root layout for DriveDock App
-// Applies global styles and fonts (Geist Sans & Mono)
+// Root layout for SSP Portal App
 
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
+import SessionWrapper from "@/components/SessionWrapper";
+
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -18,8 +19,10 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "SSPPortal – Central Access System",
   description: "Unified login and dashboard access to all internal tools at SSP Truck Line Inc.",
+  icons: {
+    icon: "/images/favicon.png",
+  },
 };
-
 
 export default function RootLayout({
   children,
@@ -28,10 +31,8 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
-      >
-        {children}
+      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
+        <SessionWrapper>{children}</SessionWrapper>
       </body>
     </html>
   );
