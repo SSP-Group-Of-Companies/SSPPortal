@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import Image from "next/image";
 import { useSession, signOut } from "next-auth/react";
-import { ChevronDown, Menu, X } from "lucide-react";
+import { ChevronDown } from "lucide-react";
 import ProfileAvatar from "@/components/ui/ProfileAvatar";
 
 interface NavbarProps {
