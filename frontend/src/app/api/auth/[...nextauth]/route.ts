@@ -1,6 +1,9 @@
+export const runtime = "nodejs";
+
 import NextAuth from "next-auth";
 import AzureADProvider from "next-auth/providers/azure-ad";
 import type { NextAuthOptions } from "next-auth";
+
 
 export const authOptions: NextAuthOptions = {
   providers: [
@@ -77,4 +80,6 @@ export const authOptions: NextAuthOptions = {
 };
 
 const handler = NextAuth(authOptions);
-export { handler as GET, handler as POST };
+export const GET = handler;
+export const POST = handler;
+
