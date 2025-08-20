@@ -1,10 +1,10 @@
 import { getToken } from "next-auth/jwt";
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import { COOKIE_NAME, NEXTAUTH_SECRET } from "./app/config/env";
 
 export async function middleware(req: NextRequest) {
-  const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
-   console.log("Middleware token:", token); 
+  const token = await getToken({ req, secret: NEXTAUTH_SECRET, cookieName: COOKIE_NAME });
 
   const isAuthPage = req.nextUrl.pathname === "/login";
 
@@ -25,4 +25,3 @@ export async function middleware(req: NextRequest) {
 export const config = {
   matcher: ["/", "/login", "/dashboard/:path*", "/drivedock/:path*", "/dispatchsafe/:path*"],
 };
-
