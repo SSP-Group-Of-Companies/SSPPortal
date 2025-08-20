@@ -1,13 +1,14 @@
 "use client";
 
+import { Suspense, useMemo, useEffect, useState } from "react";
 import { signIn, useSession } from "next-auth/react";
 import Image from "next/image";
 import Head from "next/head";
-import { useMemo, useEffect, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { Eye, EyeOff } from "lucide-react";
 import { NEXT_PUBLIC_ALLOWED_CALLBACK_HOSTS, NEXT_PUBLIC_ORIGIN } from "../config/env";
 
+// --- keep your helper as-is ---
 function isAllowedCallback(urlStr: string | null): string | null {
   if (!urlStr) return null;
 
@@ -21,9 +22,6 @@ function isAllowedCallback(urlStr: string | null): string | null {
       .map((h) => h.trim())
       .filter(Boolean);
 
-    // Allow:
-    // - Exact portal host (PUBLIC_ORIGIN)
-    // - Any host that ends with one of the allowed hosts (subdomains)
     const portalOrigin = NEXT_PUBLIC_ORIGIN;
     const portalHost = portalOrigin ? new URL(portalOrigin).host : "";
 
@@ -35,26 +33,35 @@ function isAllowedCallback(urlStr: string | null): string | null {
   }
 }
 
+/**
+ * Wrapper required so that the inner component (which uses useSearchParams)
+ * is rendered within a Suspense boundary.
+ */
 export default function LoginPage() {
+  return (
+    <Suspense fallback={null}>
+      <LoginPageInner />
+    </Suspense>
+  );
+}
+
+function LoginPageInner() {
   const searchParams = useSearchParams();
   const router = useRouter();
-  const { status } = useSession(); // portal can use useSession
+  const { status } = useSession();
 
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
 
   const fallbackAfterLogin = "/dashboard";
 
-  // sanitize/normalize callbackUrl
   const safeCallbackUrl = useMemo(() => {
     const fromQuery = searchParams.get("callbackUrl");
     return isAllowedCallback(fromQuery) ?? fallbackAfterLogin;
   }, [searchParams, fallbackAfterLogin]);
 
-  // If already authenticated, bounce immediately to callbackUrl (or dashboard)
   useEffect(() => {
     if (status === "authenticated") {
-      // Use a client redirect to avoid re‑triggering auth flow
       router.replace(safeCallbackUrl);
     }
   }, [status, router, safeCallbackUrl]);
@@ -102,7 +109,12 @@ export default function LoginPage() {
               <div title="Disabled for now – full login with email/password coming soon">
                 <input type={showPassword ? "text" : "password"} disabled placeholder="••••••••" className="w-full px-4 py-2 border border-gray-300 rounded-md bg-gray-100 cursor-not-allowed" />
               </div>
-              <button type="button" className="absolute inset-y-0 right-2 flex items-center text-gray-500" onClick={() => setShowPassword(!showPassword)}>
+              <button
+                type="button"
+                className="absolute inset-y-0 right-2 flex items-center text-gray-500"
+                onClick={() => setShowPassword(!showPassword)}
+                aria-label={showPassword ? "Hide password" : "Show password"}
+              >
                 {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
               </button>
             </div>
@@ -125,7 +137,6 @@ export default function LoginPage() {
             <p className="text-center font-medium text-sm text-gray-600">Company Employees</p>
             <button
               onClick={() => {
-                // Trigger Azure AD login and preserve the validated callbackUrl
                 signIn("azure-ad", { callbackUrl: safeCallbackUrl });
               }}
               className="w-full bg-black hover:bg-neutral-800 text-white font-semibold py-2.5 rounded-md flex items-center justify-center gap-2 transition duration-200 cursor-pointer"
