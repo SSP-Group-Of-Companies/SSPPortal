@@ -19,7 +19,10 @@ export default function Navbar({ toggleSidebar, isSidebarOpen }: NavbarProps) {
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+      if (
+        dropdownRef.current &&
+        !dropdownRef.current.contains(e.target as Node)
+      ) {
         setDropdownOpen(false);
       }
     };
@@ -36,24 +39,25 @@ export default function Navbar({ toggleSidebar, isSidebarOpen }: NavbarProps) {
         onClick={toggleSidebar}
         title={isSidebarOpen ? "Close menu" : "Open menu"}
         className="lg:hidden w-10 h-10 flex items-center justify-center rounded-full bg-white text-black shadow-md transition-all duration-300"
-        >
+      >
         <svg
-            className={`w-5 h-5 text-white transition-transform duration-500 ease-in-out ${
+          className={`w-5 h-5 text-white transition-transform duration-500 ease-in-out ${
             isSidebarOpen ? "rotate-90 scale-110" : ""
-            }`}
-            fill="#000"
-            stroke="#000"
-            strokeWidth="2.5"
-            viewBox="0 0 24 24"
+          }`}
+          fill="#000"
+          stroke="#000"
+          strokeWidth="2.5"
+          viewBox="0 0 24 24"
         >
-            <path
+          <path
             strokeLinecap="round"
             strokeLinejoin="round"
-            d={isSidebarOpen ? "M6 18L18 6M6 6l12 12" : "M4 6h16M4 12h16M4 18h16"}
-            />
+            d={
+              isSidebarOpen ? "M6 18L18 6M6 6l12 12" : "M4 6h16M4 12h16M4 18h16"
+            }
+          />
         </svg>
-        </button>
-
+      </button>
 
       {/* Centered Logo */}
       <div className="absolute left-1/2 transform -translate-x-1/2">
@@ -68,7 +72,10 @@ export default function Navbar({ toggleSidebar, isSidebarOpen }: NavbarProps) {
       </div>
 
       {/* Right: User + Dropdown */}
-      <div className="ml-auto flex items-center gap-2 relative" ref={dropdownRef}>
+      <div
+        className="ml-auto flex items-center gap-2 relative"
+        ref={dropdownRef}
+      >
         <button
           onClick={() => setDropdownOpen((prev) => !prev)}
           className="flex items-center gap-2 focus:outline-none"
@@ -76,7 +83,7 @@ export default function Navbar({ toggleSidebar, isSidebarOpen }: NavbarProps) {
           <ProfileAvatar size={32} />
           <span className="hidden sm:inline text-xs sm:text-sm font-medium text-gray-700">
             {userName}
-            </span>
+          </span>
           <ChevronDown className="w-4 h-4 text-gray-500" />
         </button>
 
