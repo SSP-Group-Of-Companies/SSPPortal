@@ -11,13 +11,24 @@ interface SidebarProps {
 }
 
 const departments = {
-  Safety: ["DriveDock/dashboard/home"],
+  Safety: ["DriveDock"],
   Dispatch: ["DispatchSafe"],
   Global: ["GlobalOps"],
   Sales: ["SalesTool"],
   Accounting: ["LedgerX"],
   "Dry Van Division": ["DV Manager"],
   HR: ["HRDock"],
+};
+
+// Define all your custom routes here
+const appRoutes: Record<string, string> = {
+  DriveDock: "/drivedock/dashboard/home",
+  DispatchSafe: "/dispatchsafe",
+  GlobalOps: "/globalops",
+  SalesTool: "/sales",
+  LedgerX: "/accounting/ledger",
+  "DV Manager": "/dv",
+  HRDock: "/hr",
 };
 
 export default function Sidebar({ isOpen, toggle, isDesktop }: SidebarProps) {
@@ -33,7 +44,7 @@ export default function Sidebar({ isOpen, toggle, isDesktop }: SidebarProps) {
           : "-translate-x-full opacity-0 scale-[0.98] pointer-events-none"
       )}
     >
-      {/* Top bar with close (mobile only) */}
+      {/* Top bar */}
       {!isDesktop && (
         <div className="flex justify-end p-4">
           <button
@@ -58,7 +69,6 @@ export default function Sidebar({ isOpen, toggle, isDesktop }: SidebarProps) {
         </div>
       )}
 
-      {/* Desktop top bar with full-circle glass-style close button */}
       {isDesktop && (
         <div className="w-full h-14 flex items-center px-4">
           <div className="ml-auto">
@@ -94,8 +104,8 @@ export default function Sidebar({ isOpen, toggle, isDesktop }: SidebarProps) {
             </h3>
             <ul className="space-y-1">
               {apps.map((app) => {
-                const href = `/${app.toLowerCase().replace(/\s+/g, "")}`;
-                const isActive = pathname === href;
+                const href = appRoutes[app] || "/";
+                const isActive = pathname.startsWith(href);
 
                 return (
                   <li key={app}>
