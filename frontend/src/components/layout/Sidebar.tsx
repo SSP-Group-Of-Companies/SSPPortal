@@ -11,7 +11,7 @@ interface SidebarProps {
 }
 
 const departments = {
-  Safety: ["DriveDock"],
+  Safety: ["DriveDock/dashboard/home"],
   Dispatch: ["DispatchSafe"],
   Global: ["GlobalOps"],
   Sales: ["SalesTool"],
@@ -41,7 +41,6 @@ export default function Sidebar({ isOpen, toggle, isDesktop }: SidebarProps) {
             className="group w-10 h-10 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 text-white shadow-md backdrop-blur-sm transition-all duration-500"
             title="Close sidebar"
           >
-            
             <svg
               className="w-4 h-4 rotate-180 transition-transform duration-600 ease-in-out group-hover:scale-110 group-hover:-translate-x-1"
               fill="none"
@@ -49,7 +48,11 @@ export default function Sidebar({ isOpen, toggle, isDesktop }: SidebarProps) {
               strokeWidth="3"
               viewBox="0 0 24 24"
             >
-              <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M9 5l7 7-7 7"
+              />
             </svg>
           </button>
         </div>
@@ -71,7 +74,11 @@ export default function Sidebar({ isOpen, toggle, isDesktop }: SidebarProps) {
                 strokeWidth="3"
                 viewBox="0 0 24 24"
               >
-                <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M9 5l7 7-7 7"
+                />
               </svg>
             </button>
           </div>
@@ -107,7 +114,9 @@ export default function Sidebar({ isOpen, toggle, isDesktop }: SidebarProps) {
                 );
               })}
             </ul>
-            {index < arr.length - 1 && <hr className="my-4 border-t border-white/10" />}
+            {index < arr.length - 1 && (
+              <hr className="my-4 border-t border-white/10" />
+            )}
           </div>
         ))}
       </div>
