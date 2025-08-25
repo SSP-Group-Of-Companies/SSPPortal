@@ -1,11 +1,11 @@
-import { COOKIE_DOMAIN, COOKIE_NAME, NEXT_PUBLIC_ORIGIN } from "@/app/config/env";
+import { AUTH_COOKIE_DOMAIN, AUTH_COOKIE_NAME, NEXT_PUBLIC_ORIGIN } from "@/app/config/env";
 import { NextResponse } from "next/server";
 
 const LOGIN_PATH = "/login";
 
 function buildDeleteHeaders() {
   const names = [
-    COOKIE_NAME,
+    AUTH_COOKIE_NAME,
     "next-auth.session-token",
     "__Secure-next-auth.session-token",
     "next-auth.csrf-token",
@@ -14,7 +14,7 @@ function buildDeleteHeaders() {
     "__Secure-next-auth.callback-url",
   ];
 
-  const shared = `Domain=${COOKIE_DOMAIN}; Path=/; Max-Age=0; SameSite=Lax; Secure`;
+  const shared = `Domain=${AUTH_COOKIE_DOMAIN}; Path=/; Max-Age=0; SameSite=Lax; Secure`;
   const hostOnly = `Path=/; Max-Age=0; SameSite=Lax; Secure`;
 
   const headers: string[] = [];

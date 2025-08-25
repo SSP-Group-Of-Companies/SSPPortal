@@ -2,8 +2,8 @@
 export const NEXT_PUBLIC_ORIGIN = process.env.NEXT_PUBLIC_ORIGIN!;
 
 // Cookie shared across sub‑apps
-export const COOKIE_NAME = process.env.COOKIE_NAME! || "SSP_AUTH_TOKEN";
-export const COOKIE_DOMAIN = process.env.COOKIE_DOMAIN! || ".sspportal.lvh.me";
+export const AUTH_COOKIE_NAME = process.env.AUTH_COOKIE_NAME! || "SSP_AUTH_TOKEN";
+export const AUTH_COOKIE_DOMAIN = process.env.AUTH_COOKIE_DOMAIN! || ".sspportal.lvh.me";
 
 // NextAuth
 export const NEXTAUTH_URL = process.env.NEXTAUTH_URL;

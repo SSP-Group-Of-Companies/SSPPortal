@@ -1,7 +1,7 @@
 import AzureADProvider from "next-auth/providers/azure-ad";
 import type { AuthOptions } from "next-auth";
 import { JWT } from "next-auth/jwt";
-import { AZURE_AD_CLIENT_ID, AZURE_AD_CLIENT_SECRET, AZURE_AD_TENANT_ID, COOKIE_DOMAIN, COOKIE_NAME, NEXTAUTH_SECRET } from "@/app/config/env";
+import { AZURE_AD_CLIENT_ID, AZURE_AD_CLIENT_SECRET, AZURE_AD_TENANT_ID, AUTH_COOKIE_DOMAIN, AUTH_COOKIE_NAME, NEXTAUTH_SECRET } from "@/app/config/env";
 
 export const authOptions: AuthOptions = {
   providers: [
@@ -16,9 +16,9 @@ export const authOptions: AuthOptions = {
   cookies: {
     // The one cookie all apps will share
     sessionToken: {
-      name: COOKIE_NAME,
+      name: AUTH_COOKIE_NAME,
       options: {
-        domain: COOKIE_DOMAIN,
+        domain: AUTH_COOKIE_DOMAIN,
         path: "/",
         httpOnly: true,
         sameSite: "lax",
