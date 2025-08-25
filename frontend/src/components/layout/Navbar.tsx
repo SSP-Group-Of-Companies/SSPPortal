@@ -2,9 +2,10 @@
 
 import { useState, useEffect, useRef } from "react";
 import Image from "next/image";
-import { useSession, signOut } from "next-auth/react";
+import { useSession } from "next-auth/react"; // keep in Portal only
 import { ChevronDown } from "lucide-react";
 import ProfileAvatar from "@/components/ui/ProfileAvatar";
+import { NEXT_PUBLIC_ORIGIN } from "@/app/config/env";
 
 interface NavbarProps {
   toggleSidebar: () => void;
@@ -26,11 +27,13 @@ export default function Navbar({ toggleSidebar, isSidebarOpen }: NavbarProps) {
         setDropdownOpen(false);
       }
     };
-    if (dropdownOpen) {
-      document.addEventListener("mousedown", handleClickOutside);
-    }
+    if (dropdownOpen) document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [dropdownOpen]);
+
+  // Build logout URL -> /api/auth/logout (Portal route)
+  const portalBase = NEXT_PUBLIC_ORIGIN || "";
+  const logoutHref = portalBase ? new URL("/api/auth/logout", portalBase).toString() : "/api/auth/logout";
 
   return (
     <nav className="fixed top-0 left-0 right-0 z-40 flex items-center justify-between px-4 md:px-6 py-3 bg-white shadow-md">
@@ -39,6 +42,7 @@ export default function Navbar({ toggleSidebar, isSidebarOpen }: NavbarProps) {
         onClick={toggleSidebar}
         title={isSidebarOpen ? "Close menu" : "Open menu"}
         className="lg:hidden w-10 h-10 flex items-center justify-center rounded-full bg-white text-black shadow-md transition-all duration-300"
+      >
       >
         <svg
           className={`w-5 h-5 text-white transition-transform duration-500 ease-in-out ${
@@ -58,17 +62,11 @@ export default function Navbar({ toggleSidebar, isSidebarOpen }: NavbarProps) {
           />
         </svg>
       </button>
+      </button>
 
       {/* Centered Logo */}
       <div className="absolute left-1/2 transform -translate-x-1/2">
-        <Image
-          src="/images/SSP-Truck-LineFullLogo.png"
-          alt="SSP Logo"
-          width={130}
-          height={40}
-          className="w-[90px] sm:w-[110px] md:w-[130px] h-auto object-contain"
-          priority
-        />
+        <Image src="/images/SSP-Truck-LineFullLogo.png" alt="SSP Logo" width={130} height={40} className="w-[90px] sm:w-[110px] md:w-[130px] h-auto object-contain" priority />
       </div>
 
       {/* Right: User + Dropdown */}
@@ -88,13 +86,11 @@ export default function Navbar({ toggleSidebar, isSidebarOpen }: NavbarProps) {
         </button>
 
         {dropdownOpen && (
-          <div className="absolute right-0 top-12 mt-1 w-40 bg-white rounded-md shadow-md py-2 z-50">
-            <button
-              onClick={() => signOut({ callbackUrl: "/login" })}
-              className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition"
-            >
+          <div className="absolute right-0 top-12 mt-1 w-40 bg-white rounded-md shadow-md py-2 z-50" role="menu">
+            {/* Navigate to /api/auth/logout (server clears cookie + redirects to /login) */}
+            <a href={logoutHref} className="block w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition" role="menuitem" onClick={() => setDropdownOpen(false)}>
               Logout
-            </button>
+            </a>
           </div>
         )}
       </div>
