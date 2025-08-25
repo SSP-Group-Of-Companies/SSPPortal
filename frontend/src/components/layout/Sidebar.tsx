@@ -20,6 +20,16 @@ const departments = {
   HR: ["HRDock"],
 };
 
+const appLinks: Record<string, string> = {
+  DriveDock: process.env.NEXT_PUBLIC_DRIVEDOCK_URL || "#",
+  DispatchSafe: process.env.NEXT_PUBLIC_DISPATCHSAFE_URL || "#",
+  GlobalOps: process.env.NEXT_PUBLIC_GLOBALOPS_URL || "#",
+  SalesTool: "#",
+  "DV Manager": "#",
+  LedgerX: "#",
+  HRDock: process.env.NEXT_PUBLIC_HRDOCK_URL || "#",
+};
+
 export default function Sidebar({ isOpen, toggle, isDesktop }: SidebarProps) {
   const pathname = usePathname();
 
@@ -94,13 +104,15 @@ export default function Sidebar({ isOpen, toggle, isDesktop }: SidebarProps) {
             </h3>
             <ul className="space-y-1">
               {apps.map((app) => {
-                const href = `/${app.toLowerCase().replace(/\s+/g, "")}`;
+                const href = appLinks[app] || "#";
                 const isActive = pathname === href;
 
                 return (
                   <li key={app}>
                     <Link
                       href={href}
+                      target="_blank" // Optional: open in new tab
+                      rel="noopener noreferrer"
                       className={cn(
                         "block text-sm px-3 py-2 rounded-md transition",
                         isActive
