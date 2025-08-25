@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 
 interface SidebarProps {
@@ -18,18 +20,9 @@ const departments = {
   HR: ["HRDock"],
 };
 
-// Use full URLs for externally hosted apps
-const appRoutes: Record<string, string> = {
-  DriveDock: "https://drivedock.vercel.app/dashboard/home",
-  DispatchSafe: "https://dispatchsafe.vercel.app", // update as needed
-  GlobalOps: "https://globalops.vercel.app",
-  SalesTool: "https://sales.vercel.app",
-  LedgerX: "https://ledgerx.vercel.app",
-  "DV Manager": "https://dvmanager.vercel.app",
-  HRDock: "https://hrdock.vercel.app",
-};
-
 export default function Sidebar({ isOpen, toggle, isDesktop }: SidebarProps) {
+  const pathname = usePathname();
+
   return (
     <aside
       className={cn(
@@ -40,7 +33,7 @@ export default function Sidebar({ isOpen, toggle, isDesktop }: SidebarProps) {
           : "-translate-x-full opacity-0 scale-[0.98] pointer-events-none"
       )}
     >
-      {/* Close button */}
+      {/* Top bar with close (mobile only) */}
       {!isDesktop && (
         <div className="flex justify-end p-4">
           <button
@@ -65,6 +58,7 @@ export default function Sidebar({ isOpen, toggle, isDesktop }: SidebarProps) {
         </div>
       )}
 
+      {/* Desktop top bar with full-circle glass-style close button */}
       {isDesktop && (
         <div className="w-full h-14 flex items-center px-4">
           <div className="ml-auto">
@@ -91,7 +85,7 @@ export default function Sidebar({ isOpen, toggle, isDesktop }: SidebarProps) {
         </div>
       )}
 
-      {/* Sidebar content */}
+      {/* Sidebar Content */}
       <div className="px-6 py-2 mt-2 space-y-4 overflow-y-auto flex-1">
         {Object.entries(departments).map(([dept, apps], index, arr) => (
           <div key={dept}>
@@ -100,21 +94,22 @@ export default function Sidebar({ isOpen, toggle, isDesktop }: SidebarProps) {
             </h3>
             <ul className="space-y-1">
               {apps.map((app) => {
-                const href = appRoutes[app] || "#";
+                const href = `/${app.toLowerCase().replace(/\s+/g, "")}`;
+                const isActive = pathname === href;
 
                 return (
                   <li key={app}>
-                    <a
+                    <Link
                       href={href}
-                      target="_blank"
-                      rel="noopener noreferrer"
                       className={cn(
                         "block text-sm px-3 py-2 rounded-md transition",
-                        "text-gray-200 hover:text-white hover:bg-white/5"
+                        isActive
+                          ? "bg-white/10 text-white font-semibold"
+                          : "text-gray-200 hover:text-white hover:bg-white/5"
                       )}
                     >
                       {app}
-                    </a>
+                    </Link>
                   </li>
                 );
               })}
