@@ -12,7 +12,7 @@ interface SidebarProps {
 
 const departments = {
   Safety: ["DriveDock"],
-  Dispatch: ["DispatchSafe"],
+  Guards: ["TraxYard"],
   Global: ["GlobalOps"],
   Sales: ["SalesTool"],
   Accounting: ["LedgerX"],
@@ -22,7 +22,7 @@ const departments = {
 
 const appLinks: Record<string, string> = {
   DriveDock: process.env.NEXT_PUBLIC_DRIVEDOCK_URL || "#",
-  DispatchSafe: process.env.NEXT_PUBLIC_DISPATCHSAFE_URL || "#",
+  TraxYard: process.env.NEXT_PUBLIC_TRAXYARD_URL || "#",
   GlobalOps: process.env.NEXT_PUBLIC_GLOBALOPS_URL || "#",
   SalesTool: "#",
   "DV Manager": "#",
