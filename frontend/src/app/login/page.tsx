@@ -12,22 +12,36 @@ import { NEXT_PUBLIC_ALLOWED_CALLBACK_HOSTS, NEXT_PUBLIC_ORIGIN } from "../confi
 function isAllowedCallback(urlStr: string | null): string | null {
   if (!urlStr) return null;
 
-  // Allow relative URLs (e.g., "/dashboard")
+  // Allow relative URLs
   if (urlStr.startsWith("/")) return urlStr;
 
   try {
     const url = new URL(urlStr);
+
+    // 1) Enforce https (optional but recommended in prod)
+    if (url.protocol !== "https:") return null;
+
+    // 2) Compare hostnames (no ports)
     const allowedHosts = (NEXT_PUBLIC_ALLOWED_CALLBACK_HOSTS ?? "")
       .split(",")
       .map((h) => h.trim())
       .filter(Boolean);
 
     const portalOrigin = NEXT_PUBLIC_ORIGIN;
-    const portalHost = portalOrigin ? new URL(portalOrigin).host : "";
+    const portalHostname = portalOrigin ? new URL(portalOrigin).hostname : "";
 
-    const hostAllowed = url.host === portalHost || allowedHosts.some((h) => url.host === h || url.host.endsWith(`.${h}`));
+    const hostname = url.hostname;
 
-    return hostAllowed ? url.toString() : null;
+    const hostnameAllowed = hostname === portalHostname || allowedHosts.some((h) => hostname === h || hostname.endsWith(`.${h}`));
+
+    if (!hostnameAllowed) return null;
+
+    // 3) (Optional) If you want to restrict ports, do it explicitly:
+    // const allowedPorts = new Set(["", "443", "3443", "4443"]);
+    // const port = url.port || (url.protocol === "https:" ? "443" : "");
+    // if (!allowedPorts.has(port)) return null;
+
+    return url.toString();
   } catch {
     return null;
   }
