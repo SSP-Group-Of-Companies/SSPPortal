@@ -1,0 +1,122 @@
+name: Deploy to Vercel
+
+on:
+  push:
+    # Run on every branch so on-the-fly test branches get a preview deployment.
+    branches: ["**"]
+    # Skip builds for changes that can't affect the deployed app.
+    paths-ignore:
+      - "**.md"
+      - "docs/**"
+      - ".gitignore"
+      - ".env.example"
+  # Manual trigger: redeploy any branch on demand (e.g. after changing env vars
+  # in Vercel) without pushing a commit. Vercel's own Redeploy button / deploy
+  # hooks hit the git-author seat check and fail; running this workflow deploys
+  # via the token owner instead. Re-runs `vercel pull`, so new envs are picked up.
+  workflow_dispatch:
+
+# Cancel an in-progress run if the same branch is pushed again.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+  VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+  VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    # Build + upload should be well under this; guards against a hung process.
+    timeout-minutes: 15
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@v4
+
+      - name: Install Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: "npm"
+          cache-dependency-path: frontend/package-lock.json
+
+      # Persist the Next.js compiler / TypeScript incremental cache across runs to
+      # speed up the build. Keyed on the lockfile + source files so it invalidates
+      # when dependencies or code change; restore-keys allow a partial (warm) hit.
+      - name: Cache Next.js build
+        uses: actions/cache@v4
+        with:
+          path: ${{ github.workspace }}/frontend/.next/cache
+          key: ${{ runner.os }}-nextjs-${{ hashFiles('frontend/package-lock.json') }}-${{ hashFiles('frontend/src/**/*.[jt]s', 'frontend/src/**/*.[jt]sx') }}
+          restore-keys: |
+            ${{ runner.os }}-nextjs-${{ hashFiles('frontend/package-lock.json') }}-
+
+      - name: Install dependencies
+        working-directory: frontend
+        run: npm ci
+
+      # Vercel CLI must run from the repo root (not frontend/). The dashboard Root Directory
+      # is set to frontend/, and running inside frontend/ doubles that path and breaks the build
+      # subprocess (spawn npm/sh ENOENT). Use the local CLI from node_modules — npm exec
+      # can swallow --token and fall back to an old cached global vercel.
+      # ==========================================
+      # PRODUCTION (main branch)
+      # ==========================================
+      - name: Pull Vercel environment (production)
+        if: github.ref == 'refs/heads/main'
+        run: frontend/node_modules/.bin/vercel pull --yes --environment=production
+
+      - name: Pull Vercel environment (preview)
+        if: github.ref != 'refs/heads/main'
+        # --git-branch resolves branch-scoped preview vars in addition to
+        # "All Environments" vars for whatever branch was just pushed.
+        run: frontend/node_modules/.bin/vercel pull --yes --environment=preview --git-branch=${{ github.ref_name }}
+
+      - name: Prepare Vercel project for CI build
+        # Deps are installed above; skip Vercel's install subprocess, which hardcodes
+        # paths that only exist on Vercel's build servers and fails in GitHub Actions.
+        run: |
+          node -e "
+            const fs = require('fs');
+            const path = '.vercel/project.json';
+            const project = JSON.parse(fs.readFileSync(path, 'utf8'));
+            project.settings ??= {};
+            project.settings.installCommand = 'true';
+            fs.writeFileSync(path, JSON.stringify(project, null, 2));
+          "
+
+      - name: Build (production)
+        if: github.ref == 'refs/heads/main'
+        # BUILD-ONLY placeholder. `next-auth` reads NEXTAUTH_URL at import time and
+        # throws `new URL("")` if it's empty, which crashes prerendering. This value
+        # only needs to be a parseable URL so the build succeeds — it is NOT baked
+        # into the output and is NOT set in Vercel's runtime env, so live auth still
+        # resolves the real per-branch URL from the request. Do NOT set NEXTAUTH_URL
+        # in the Vercel dashboard or it would pin every branch to one URL.
+        env:
+          NEXTAUTH_URL: https://build-placeholder.invalid
+        run: frontend/node_modules/.bin/vercel build --prod
+
+      - name: Deploy prebuilt output (production)
+        if: github.ref == 'refs/heads/main'
+        # --archive=tgz uploads the output as a single tarball (fewer round-trips).
+        run: frontend/node_modules/.bin/vercel deploy --prebuilt --prod --archive=tgz
+
+      # ==========================================
+      # PREVIEW (every other branch)
+      # ==========================================
+      - name: Build (preview)
+        if: github.ref != 'refs/heads/main'
+        # BUILD-ONLY placeholder — see the production build step for the full rationale.
+        # Throwaway value to keep next-auth from crashing during prerender; runtime
+        # auth on each preview branch still resolves its real URL from the request.
+        env:
+          NEXTAUTH_URL: https://build-placeholder.invalid
+        run: frontend/node_modules/.bin/vercel build
+
+      - name: Deploy prebuilt output (preview)
+        if: github.ref != 'refs/heads/main'
+        # --archive=tgz uploads the output as a single tarball (fewer round-trips).
+        run: frontend/node_modules/.bin/vercel deploy --prebuilt --archive=tgz
