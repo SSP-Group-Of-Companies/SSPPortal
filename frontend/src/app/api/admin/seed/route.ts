@@ -19,7 +19,7 @@ import { logAudit } from "@/lib/platform/audit";
 const COMPANIES = [
   { code: "ssp-truckline", name: "SSP Truckline Inc", country: "CA" },
   { code: "ssp-trucklines", name: "SSP Trucklines Inc", country: "US" },
-  { code: "nesh", name: "New England Steel Haulers", country: "US" },
+  { code: "nesh", name: "New England Steel Haulers", country: "CA" },
   { code: "fellowstrans", name: "FellowsTrans Inc", country: "CA" },
   { code: "webfreight", name: "Web Freight Inc", country: "CA" },
 ];
@@ -68,7 +68,13 @@ export async function POST(req: NextRequest) {
   const created = { companies: 0, departments: 0, apps: 0 };
 
   for (const c of COMPANIES) {
-    const res = await Company.updateOne({ code: c.code }, { $setOnInsert: c }, { upsert: true });
+    // Insert if missing; always sync canonical name/country from seed so factual
+    // corrections (e.g. NESH is CA per DriveDock) propagate on re-run.
+    const res = await Company.updateOne(
+      { code: c.code },
+      { $set: { name: c.name, country: c.country }, $setOnInsert: { code: c.code, isActive: true } },
+      { upsert: true }
+    );
     if (res.upsertedCount) created.companies++;
   }
   for (const d of DEPARTMENTS) {
