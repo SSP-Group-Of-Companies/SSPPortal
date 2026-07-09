@@ -1,7 +1,69 @@
 @import "tailwindcss";
 
-/* Optional: toggle dot animation */
-input:checked + div .dot {
-  transform: translateX(100%);
+/* ═══════════════════════════════════════════════════════════════════════
+   SSP BRAND TOKENS
+   Mirrors the identity system used on sspgroup.com so every internal
+   tool reads as one family. Light-first premium surfaces.
+   ═══════════════════════════════════════════════════════════════════════ */
+@theme {
+  /* Core palette */
+  --color-ssp-ink-900: #0b3e5e;
+  --color-ssp-ink-800: #0d4f78;
+  --color-ssp-cloud-50: #f5f7fa;
+  --color-ssp-cloud-100: #f2f4f7;
+  --color-ssp-cyan-500: #10a7d8;
+  --color-ssp-cyan-600: #0b8fbb;
+
+  --color-brand-50: #fff1f2;
+  --color-brand-100: #ffe4e6;
+  --color-brand-500: #e02b35;
+  --color-brand-600: #d71920;
+  --color-brand-700: #b91519;
+
+  /* Semantic surfaces & text */
+  --color-surface-0: #f5f7fa;
+  --color-surface-1: #ffffff;
+  --color-surface-2: #eef2f6;
+  --color-border: rgba(15, 23, 42, 0.12);
+  --color-border-soft: rgba(15, 23, 42, 0.06);
+  --color-text: rgba(12, 23, 38, 0.94);
+  --color-text-strong: #0f172a;
+  --color-muted: rgba(12, 23, 38, 0.7);
+  --color-subtle: rgba(15, 23, 42, 0.54);
+
+  /* Status */
+  --color-ok-500: #059669;
+  --color-warn-500: #d97706;
+
+  /* Dark sidebar (company ink family) */
+  --color-company-ink: #081a2b;
+  --color-sidebar-bg: #0a2338;
+  --color-sidebar-hover: rgba(255, 255, 255, 0.06);
+  --color-sidebar-active: rgba(16, 167, 216, 0.16);
+
+  --shadow-card: 0 8px 24px rgba(2, 6, 23, 0.06);
+  --shadow-card-hover: 0 12px 32px rgba(2, 6, 23, 0.1);
 }
 
+body {
+  background: var(--color-surface-0);
+  color: var(--color-text);
+}
+
+/* Consistent keyboard-accessible focus ring */
+.focus-ring {
+  outline: none;
+}
+.focus-ring:focus-visible {
+  outline: none;
+  box-shadow:
+    0 0 0 2px var(--color-ssp-cyan-500),
+    0 0 0 4px #ffffff;
+}
+
+/* Shared light card primitive */
+.portal-card {
+  border: 1px solid var(--color-border-soft);
+  background: var(--color-surface-1);
+  box-shadow: var(--shadow-card);
+}

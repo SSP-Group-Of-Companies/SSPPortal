@@ -1,7 +1,25 @@
 import AzureADProvider from "next-auth/providers/azure-ad";
 import type { AuthOptions } from "next-auth";
-import { JWT } from "next-auth/jwt";
 import { AZURE_AD_CLIENT_ID, AZURE_AD_CLIENT_SECRET, AZURE_AD_TENANT_ID, AUTH_COOKIE_DOMAIN, AUTH_COOKIE_NAME, NEXTAUTH_SECRET } from "@/app/config/env";
+import { provisionUser, getUserByAzureId, toClaims } from "@/lib/platform/users";
+import { logAudit } from "@/lib/platform/audit";
+
+/**
+ * How often JWT claims (role, status, company, department) are re-read from
+ * the user directory. Keeps admin console changes (grants, disables,
+ * promotions) taking effect without forcing a re-login.
+ */
+const CLAIMS_REFRESH_SECONDS = 5 * 60;
+
+/** Entra ID token profile fields we care about beyond the defaults. */
+interface AzureProfile {
+  oid?: string;
+  sub?: string;
+  email?: string;
+  preferred_username?: string;
+  name?: string;
+  groups?: string[];
+}
 
 export const authOptions: AuthOptions = {
   providers: [
@@ -27,27 +45,100 @@ export const authOptions: AuthOptions = {
     },
   },
   callbacks: {
-    async jwt({ token, account, user }) {
+    /**
+     * Provision (or refresh) the directory record on every Microsoft sign-in
+     * and block accounts an admin has disabled.
+     */
+    async signIn({ user, profile }) {
+      const p = (profile ?? {}) as AzureProfile;
+      const azureId = p.oid || p.sub || user.id;
+      const email = (p.email || p.preferred_username || user.email || "").toLowerCase();
+      if (!azureId || !email) return false;
+
+      const record = await provisionUser({
+        azureId,
+        email,
+        name: p.name || user.name || "",
+        image: user.image || "",
+        entraGroups: Array.isArray(p.groups) ? p.groups : undefined,
+      });
+
+      if (record.status === "disabled") return false;
+
+      await logAudit({
+        action: "user.signed_in",
+        actorEmail: email,
+        targetType: "user",
+        targetId: record._id.toString(),
+        targetLabel: email,
+      });
+      return true;
+    },
+
+    async jwt({ token, account, user, profile }) {
+      // Initial sign-in: stamp identity + directory claims into the token.
       if (account) {
-        token.userId = user?.id ?? token.sub;
-        token.email = user?.email ?? token.email;
-        token.name = user?.name ?? token.name;
+        const p = (profile ?? {}) as AzureProfile;
+        const azureId = p.oid || p.sub || user?.id || token.sub || "";
+        token.userId = azureId;
+        token.email = (p.email || p.preferred_username || user?.email || token.email || "").toLowerCase();
+        token.name = p.name || user?.name || token.name;
         token.picture = token.picture ?? undefined;
+
+        const record = await getUserByAzureId(azureId);
+        if (record) {
+          const claims = toClaims(record);
+          token.uid = claims.uid;
+          token.role = claims.role;
+          token.status = claims.status;
+          token.companyCode = claims.companyCode;
+          token.departmentCode = claims.departmentCode;
+        }
+        token.claimsRefreshedAt = Math.floor(Date.now() / 1000);
+        return token;
+      }
+
+      // Subsequent requests: periodically re-sync claims from the directory
+      // so role changes / disables propagate without a re-login.
+      const refreshedAt = typeof token.claimsRefreshedAt === "number" ? token.claimsRefreshedAt : 0;
+      const now = Math.floor(Date.now() / 1000);
+      if (now - refreshedAt > CLAIMS_REFRESH_SECONDS) {
+        try {
+          const azureId = (typeof token.userId === "string" && token.userId) || token.sub || "";
+          const record = azureId ? await getUserByAzureId(azureId) : null;
+          if (record) {
+            const claims = toClaims(record);
+            token.uid = claims.uid;
+            token.role = claims.role;
+            token.status = claims.status;
+            token.companyCode = claims.companyCode;
+            token.departmentCode = claims.departmentCode;
+          }
+          token.claimsRefreshedAt = now;
+        } catch (err) {
+          // DB hiccups must not kill existing sessions; retry next request.
+          console.error("[auth] claims refresh failed:", err);
+        }
       }
       return token;
     },
+
     async session({ session, token }) {
       if (session.user) {
-        // Prefer token.userId; fall back to token.sub; default to empty string
-        const id = (typeof (token as JWT & { userId?: string }).userId === "string" && (token as JWT & { userId?: string }).userId) || (typeof token.sub === "string" ? token.sub : "");
-
+        const id = (typeof token.userId === "string" && token.userId) || (typeof token.sub === "string" ? token.sub : "");
         session.user.id = id;
         session.user.email = token.email;
         session.user.name = token.name;
         session.user.image = token.picture;
+        session.user.uid = typeof token.uid === "string" ? token.uid : undefined;
+        session.user.role = typeof token.role === "string" ? token.role : "member";
+        session.user.status = typeof token.status === "string" ? token.status : "active";
+        session.user.companyCode = typeof token.companyCode === "string" ? token.companyCode : "";
+        session.user.departmentCode = typeof token.departmentCode === "string" ? token.departmentCode : "";
       }
       return session;
     },
+
     async redirect({ url, baseUrl }) {
       // Allow absolute callbackUrl (e.g., returning to a sub‑app)
       if (url.startsWith("http")) return url;

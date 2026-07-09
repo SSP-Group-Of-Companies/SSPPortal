@@ -16,6 +16,13 @@ export const AZURE_AD_CLIENT_ID = process.env.AZURE_AD_CLIENT_ID!;
 export const AZURE_AD_CLIENT_SECRET = process.env.AZURE_AD_CLIENT_SECRET!;
 export const AZURE_AD_TENANT_ID = process.env.AZURE_AD_TENANT_ID!;
 
+// MongoDB (platform data: users, apps, companies, departments, audit)
+export const MONGO_URI = process.env.MONGO_URI!;
+
+// Bootstrap superadmins — comma-separated emails promoted to superadmin on
+// first sign-in. Everything else is managed from the admin console.
+export const ADMIN_EMAILS = process.env.ADMIN_EMAILS ?? "";
+
 // Whitelist hosts we allow for callbackUrl (comma‑separated)
 export const NEXT_PUBLIC_ALLOWED_CALLBACK_HOSTS =
   process.env.NEXT_PUBLIC_ALLOWED_CALLBACK_HOSTS!;

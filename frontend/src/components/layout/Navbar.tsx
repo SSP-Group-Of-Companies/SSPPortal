@@ -1,115 +1,106 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import Image from "next/image";
+import Link from "next/link";
 import { useSession } from "next-auth/react"; // keep in Portal only
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, LogOut, Menu, ShieldCheck } from "lucide-react";
 import ProfileAvatar from "@/components/ui/ProfileAvatar";
 import { NEXT_PUBLIC_ORIGIN } from "@/app/config/env";
+import { usePortalData } from "@/components/portal/PortalDataProvider";
 
 interface NavbarProps {
-  toggleSidebar: () => void;
-  isSidebarOpen: boolean;
+  onToggleSidebar: () => void;
 }
 
-export default function Navbar({ toggleSidebar, isSidebarOpen }: NavbarProps) {
+const ROLE_LABELS: Record<string, string> = {
+  member: "Employee",
+  admin: "Portal Admin",
+  superadmin: "Superadmin",
+};
+
+export default function Navbar({ onToggleSidebar }: NavbarProps) {
   const { data: session } = useSession();
+  const { user } = usePortalData();
   const userName = session?.user?.name || "User";
+  const role = user?.role ?? "member";
+  const isAdmin = role === "admin" || role === "superadmin";
+
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
-      if (
-        dropdownRef.current &&
-        !dropdownRef.current.contains(e.target as Node)
-      ) {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
         setDropdownOpen(false);
       }
     };
-    if (dropdownOpen)
-      document.addEventListener("mousedown", handleClickOutside);
+    if (dropdownOpen) document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [dropdownOpen]);
 
   // Build logout URL -> /api/auth/logout (Portal route)
   const portalBase = NEXT_PUBLIC_ORIGIN || "";
-  const logoutHref = portalBase
-    ? new URL("/api/auth/logout", portalBase).toString()
-    : "/api/auth/logout";
+  const logoutHref = portalBase ? new URL("/api/auth/logout", portalBase).toString() : "/api/auth/logout";
 
   return (
-    <nav className="fixed top-0 left-0 right-0 z-40 flex items-center justify-between px-4 md:px-6 py-3 bg-white shadow-md">
-      {/* Hamburger (mobile only) */}
+    <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-(--color-border-soft) bg-(--color-surface-1)/90 px-4 backdrop-blur md:px-6">
+      {/* Mobile: open sidebar */}
       <button
-        onClick={toggleSidebar}
-        title={isSidebarOpen ? "Close menu" : "Open menu"}
-        className="lg:hidden w-10 h-10 flex items-center justify-center rounded-full bg-white text-black shadow-md transition-all duration-300"
+        onClick={onToggleSidebar}
+        title="Open menu"
+        className="focus-ring flex h-9 w-9 items-center justify-center rounded-lg text-(--color-muted) transition hover:bg-(--color-surface-2) lg:hidden"
       >
-        <svg
-          className={`w-5 h-5 text-white transition-transform duration-500 ease-in-out ${
-            isSidebarOpen ? "rotate-90 scale-110" : ""
-          }`}
-          fill="#000"
-          stroke="#000"
-          strokeWidth="2.5"
-          viewBox="0 0 24 24"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            d={
-              isSidebarOpen ? "M6 18L18 6M6 6l12 12" : "M4 6h16M4 12h16M4 18h16"
-            }
-          />
-        </svg>
+        <Menu className="h-5 w-5" />
       </button>
 
-      {/* Centered Logo */}
-      <div className="absolute left-1/2 transform -translate-x-1/2">
-        <Image
-          src="/images/SSP-Truck-LineFullLogo.png"
-          alt="SSP Logo"
-          width={130}
-          height={40}
-          className="w-[90px] sm:w-[110px] md:w-[130px] h-auto object-contain"
-          priority
-        />
-      </div>
+      <div className="hidden lg:block" />
 
-      {/* Right: User + Dropdown */}
-      <div
-        className="ml-auto flex items-center gap-2 relative"
-        ref={dropdownRef}
-      >
+      {/* Right: user + dropdown */}
+      <div className="relative flex items-center gap-2" ref={dropdownRef}>
         <button
           onClick={() => setDropdownOpen((prev) => !prev)}
-          className="flex items-center gap-2 focus:outline-none"
+          className="focus-ring flex items-center gap-2.5 rounded-full py-1 pl-1 pr-2 transition hover:bg-(--color-surface-2)"
         >
           <ProfileAvatar size={32} />
-          <span className="hidden sm:inline text-xs sm:text-sm font-medium text-gray-700">
-            {userName}
+          <span className="hidden text-left sm:block">
+            <span className="block text-sm font-medium leading-tight text-(--color-text-strong)">{userName}</span>
+            <span className="block text-[11px] leading-tight text-(--color-subtle)">{ROLE_LABELS[role] ?? role}</span>
           </span>
-          <ChevronDown className="w-4 h-4 text-gray-500" />
+          <ChevronDown className="h-4 w-4 text-(--color-subtle)" />
         </button>
 
         {dropdownOpen && (
           <div
-            className="absolute right-0 top-12 mt-1 w-40 bg-white rounded-md shadow-md py-2 z-50"
+            className="portal-card absolute right-0 top-12 z-50 mt-1 w-52 overflow-hidden rounded-xl py-1.5"
             role="menu"
           >
-            {/* Navigate to /api/auth/logout (server clears cookie + redirects to /login) */}
+            <div className="border-b border-(--color-border-soft) px-4 py-2.5">
+              <p className="truncate text-sm font-medium text-(--color-text-strong)">{userName}</p>
+              <p className="truncate text-xs text-(--color-subtle)">{session?.user?.email}</p>
+            </div>
+            {isAdmin && (
+              <Link
+                href="/admin"
+                role="menuitem"
+                onClick={() => setDropdownOpen(false)}
+                className="flex items-center gap-2.5 px-4 py-2 text-sm text-(--color-text) transition hover:bg-(--color-surface-2)"
+              >
+                <ShieldCheck className="h-4 w-4 text-(--color-ssp-cyan-600)" />
+                Admin Console
+              </Link>
+            )}
             <a
               href={logoutHref}
-              className="block w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition"
               role="menuitem"
               onClick={() => setDropdownOpen(false)}
+              className="flex items-center gap-2.5 px-4 py-2 text-sm text-(--color-brand-600) transition hover:bg-(--color-brand-50)"
             >
+              <LogOut className="h-4 w-4" />
               Logout
             </a>
           </div>
         )}
       </div>
-    </nav>
+    </header>
   );
 }
