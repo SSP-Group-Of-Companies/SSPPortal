@@ -37,10 +37,15 @@ interface Props {
 
 export default function ImportFromEntraModal({ onClose, onSuccess, onImported }: Props) {
   const [query, setQuery] = useState("");
-  const [results, setResults] = useState<GraphResult[]>([]);
-  const [searching, setSearching] = useState(false);
-  const [searchError, setSearchError] = useState<string | null>(null);
-  const [hasSearched, setHasSearched] = useState(false);
+
+  // The full list fetched from Entra (reset when a new search fires)
+  const [allResults, setAllResults] = useState<GraphResult[]>([]);
+  // What the user sees — filtered client-side while a new fetch is in flight
+  const [displayResults, setDisplayResults] = useState<GraphResult[]>([]);
+
+  const [loading, setLoading] = useState(true); // initial load
+  const [searching, setSearching] = useState(false); // subsequent searches
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const [selected, setSelected] = useState<Set<string>>(new Set());
 
@@ -49,77 +54,93 @@ export default function ImportFromEntraModal({ onClose, onSuccess, onImported }:
   const [grantAppKeys, setGrantAppKeys] = useState<string[]>([]);
   const [companyCode, setCompanyCode] = useState("");
   const [departmentCode, setDepartmentCode] = useState("");
-
   const [importing, setImporting] = useState(false);
 
   const inputRef = useRef<HTMLInputElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const requestIdRef = useRef(0);
 
+  const fetchDirectory = useCallback(async (q: string) => {
+    const id = ++requestIdRef.current;
+    if (q.trim()) setSearching(true);
+    try {
+      const res = await fetch(`/api/admin/directory/search?q=${encodeURIComponent(q)}`);
+      const data = await res.json();
+      if (id !== requestIdRef.current) return;
+      if (!res.ok) {
+        setLoadError(data.error ?? "Failed to load the Entra directory.");
+        return;
+      }
+      const users: GraphResult[] = data.users ?? [];
+      setAllResults(users);
+      setDisplayResults(users);
+      setSelected(new Set());
+      setLoadError(null);
+    } catch {
+      if (id !== requestIdRef.current) return;
+      setLoadError("Could not reach the directory. Check your connection.");
+    } finally {
+      if (id === requestIdRef.current) {
+        setLoading(false);
+        setSearching(false);
+      }
+    }
+  }, []);
+
+  // Load full list on mount
   useEffect(() => {
     inputRef.current?.focus();
+    void fetchDirectory("");
     void (async () => {
       const [appsRes, orgRes] = await Promise.all([fetch("/api/admin/apps"), fetch("/api/admin/organization")]);
       const [appsData, orgData] = await Promise.all([appsRes.json(), orgRes.json()]);
       setApps(appsData.apps ?? []);
       setOrg({ companies: orgData.companies ?? [], departments: orgData.departments ?? [] });
     })();
-  }, []);
+  }, [fetchDirectory]);
 
-  const runSearch = useCallback(async (q: string) => {
-    setSearching(true);
-    setSearchError(null);
-    setHasSearched(true);
-    try {
-      const res = await fetch(`/api/admin/directory/search?q=${encodeURIComponent(q)}`);
-      const data = await res.json();
-      if (!res.ok) {
-        setSearchError(data.error ?? "Search failed");
-        setResults([]);
-        return;
-      }
-      setResults(data.users ?? []);
-      setSelected(new Set());
-    } catch {
-      setSearchError("Could not reach the directory. Check your connection.");
-      setResults([]);
-    } finally {
-      setSearching(false);
-    }
-  }, []);
-
-  // Debounced auto-search: fires 350ms after the user stops typing
+  // As you type: instantly filter the in-memory list so the UI responds,
+  // then debounce a real Entra search for anything the local list might miss.
   useEffect(() => {
+    const q = query.trim().toLowerCase();
+
+    // Instant client-side filter so results update as soon as you type
+    if (q) {
+      setDisplayResults(
+        allResults.filter(
+          (u) => u.name.toLowerCase().includes(q) || u.email.toLowerCase().includes(q)
+        )
+      );
+    } else {
+      setDisplayResults(allResults);
+    }
+
+    // Then fire a real Entra search after 400ms for accuracy
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => {
-      void runSearch(query);
-    }, 350);
+      void fetchDirectory(query);
+    }, 400);
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };
-  }, [query, runSearch]);
+  }, [query, allResults, fetchDirectory]);
 
   function toggle(azureId: string) {
     setSelected((prev) => {
       const next = new Set(prev);
-      if (next.has(azureId)) {
-        next.delete(azureId);
-      } else {
-        next.add(azureId);
-      }
+      if (next.has(azureId)) next.delete(azureId);
+      else next.add(azureId);
       return next;
     });
   }
 
   function toggleAll() {
-    if (selected.size === results.length) {
-      setSelected(new Set());
-    } else {
-      setSelected(new Set(results.map((r) => r.azureId)));
-    }
+    if (selected.size === displayResults.length) setSelected(new Set());
+    else setSelected(new Set(displayResults.map((r) => r.azureId)));
   }
 
   async function runImport() {
-    const chosen = results.filter((r) => selected.has(r.azureId));
+    const chosen = displayResults.filter((r) => selected.has(r.azureId));
     if (!chosen.length) return;
     setImporting(true);
     try {
@@ -135,43 +156,39 @@ export default function ImportFromEntraModal({ onClose, onSuccess, onImported }:
       });
       const data = await res.json();
       if (!res.ok) {
-        onSuccess("error", data.error ?? "Import failed");
+        onSuccess("error", data.error ?? "Import failed.");
         return;
       }
-
       const parts: string[] = [];
       if (data.created) parts.push(`${data.created} employee${data.created !== 1 ? "s" : ""} added to the portal`);
       if (data.updated) parts.push(`${data.updated} updated with new grants`);
       if (data.skipped) parts.push(`${data.skipped} already up to date`);
-
-      onSuccess(
-        "Import complete",
-        parts.length ? parts.join(", ") : "No changes were needed."
-      );
+      onSuccess("Import complete", parts.length ? parts.join(", ") : "No changes were needed.");
       setSelected(new Set());
       onImported();
-      void runSearch(query);
+      void fetchDirectory(query);
     } catch {
-      onSuccess("error", "Import failed — check your connection.");
+      onSuccess("error", "Import failed. Check your connection and try again.");
     } finally {
       setImporting(false);
     }
   }
 
   const grantable = apps.filter((a) => a.restricted && a.status !== "archived");
-  const allSelected = results.length > 0 && selected.size === results.length;
+  const allSelected = displayResults.length > 0 && selected.size === displayResults.length;
 
   return (
     <div
       className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-4 backdrop-blur-sm sm:items-center"
       onClick={onClose}
     >
+      {/* Fixed height — content inside scrolls; the shell never resizes */}
       <div
-        className="portal-card flex max-h-[90vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl"
+        className="portal-card flex h-[min(90vh,680px)] w-full max-w-3xl flex-col overflow-hidden rounded-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-(--color-border-soft) px-6 py-4">
+        <div className="flex shrink-0 items-center justify-between border-b border-(--color-border-soft) px-6 py-4">
           <div className="flex items-center gap-3">
             <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-(--color-surface-2)">
               <Download className="h-4 w-4 text-(--color-ssp-ink-800)" />
@@ -189,8 +206,8 @@ export default function ImportFromEntraModal({ onClose, onSuccess, onImported }:
           </button>
         </div>
 
-        {/* Search — auto fires as you type */}
-        <div className="border-b border-(--color-border-soft) px-6 py-4">
+        {/* Search */}
+        <div className="shrink-0 border-b border-(--color-border-soft) px-6 py-3">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-(--color-subtle)" />
             {searching && (
@@ -206,39 +223,39 @@ export default function ImportFromEntraModal({ onClose, onSuccess, onImported }:
           </div>
         </div>
 
-        {/* Results */}
+        {/* Scrollable results — fills all remaining space */}
         <div className="min-h-0 flex-1 overflow-y-auto">
-          {searchError && (
+          {loading && (
+            <div className="space-y-0">
+              {Array.from({ length: 8 }).map((_, i) => (
+                <div key={i} className="flex items-center gap-4 border-b border-(--color-border-soft) px-4 py-3.5">
+                  <div className="h-4 w-4 rounded bg-(--color-surface-2)" />
+                  <div className="flex-1 space-y-1.5">
+                    <div className="h-3.5 w-40 rounded bg-(--color-surface-2)" />
+                    <div className="h-3 w-56 rounded bg-(--color-surface-2)" />
+                  </div>
+                  <div className="h-5 w-20 rounded-full bg-(--color-surface-2)" />
+                </div>
+              ))}
+            </div>
+          )}
+
+          {!loading && loadError && (
             <div className="m-4 rounded-xl border-l-4 border-l-(--color-brand-600) bg-(--color-surface-1) px-4 py-3 text-sm text-(--color-text)">
-              {searchError}
+              {loadError}
             </div>
           )}
 
-          {!hasSearched && !searching && (
-            <div className="px-6 py-12 text-center text-sm text-(--color-subtle)">
-              Start typing to search for employees in your Entra tenant.
-            </div>
-          )}
-
-          {hasSearched && !searching && results.length === 0 && !searchError && (
-            <div className="px-6 py-12 text-center text-sm text-(--color-subtle)">
-              No matching employees found.
-            </div>
-          )}
-
-          {results.length > 0 && (
+          {!loading && !loadError && (
             <table className="w-full text-left text-sm">
-              <thead>
+              <thead className="sticky top-0 z-10">
                 <tr className="border-b border-(--color-border-soft) bg-(--color-surface-0)">
                   <th className="px-4 py-3">
                     <button
                       onClick={toggleAll}
                       className="text-(--color-muted) transition hover:text-(--color-text-strong)"
                     >
-                      {allSelected
-                        ? <CheckSquare className="h-4 w-4" />
-                        : <Square className="h-4 w-4" />
-                      }
+                      {allSelected ? <CheckSquare className="h-4 w-4" /> : <Square className="h-4 w-4" />}
                     </button>
                   </th>
                   <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-(--color-subtle)">Employee</th>
@@ -247,117 +264,121 @@ export default function ImportFromEntraModal({ onClose, onSuccess, onImported }:
                 </tr>
               </thead>
               <tbody className="divide-y divide-(--color-border-soft)">
-                {results.map((u) => {
-                  const isChecked = selected.has(u.azureId);
-                  return (
-                    <tr
-                      key={u.azureId}
-                      onClick={() => toggle(u.azureId)}
-                      className={cn(
-                        "cursor-pointer transition",
-                        isChecked
-                          ? "bg-sky-50/60"
-                          : "hover:bg-(--color-surface-0)"
-                      )}
-                    >
-                      <td className="px-4 py-3">
-                        <input
-                          type="checkbox"
-                          className="h-4 w-4 accent-(--color-ssp-ink-900)"
-                          checked={isChecked}
-                          onChange={() => toggle(u.azureId)}
-                          onClick={(e) => e.stopPropagation()}
-                        />
-                      </td>
-                      <td className="px-4 py-3">
-                        <p className="font-medium text-(--color-text-strong)">{u.name || "—"}</p>
-                        <p className="text-xs text-(--color-subtle)">{u.email}</p>
-                        {!u.accountEnabled && (
-                          <span className="text-xs text-(--color-brand-600)">Disabled in Entra</span>
+                {displayResults.length === 0 ? (
+                  <tr>
+                    <td colSpan={4} className="px-4 py-10 text-center text-sm text-(--color-subtle)">
+                      No matching employees found.
+                    </td>
+                  </tr>
+                ) : (
+                  displayResults.map((u) => {
+                    const isChecked = selected.has(u.azureId);
+                    return (
+                      <tr
+                        key={u.azureId}
+                        onClick={() => toggle(u.azureId)}
+                        className={cn(
+                          "cursor-pointer transition",
+                          isChecked ? "bg-sky-50/60" : "hover:bg-(--color-surface-0)"
                         )}
-                      </td>
-                      <td className="px-4 py-3 text-sm text-(--color-muted)">
-                        {[u.jobTitle, u.department].filter(Boolean).join(" · ") || "—"}
-                      </td>
-                      <td className="px-4 py-3">
-                        {u.alreadyImported ? (
-                          <div className="space-y-1">
-                            <div className="flex flex-wrap items-center gap-1">
-                              <Badge tone="neutral">{u.role}</Badge>
-                              {u.appKeys.map((k) => (
-                                <Badge key={k} tone="ok">{k}</Badge>
-                              ))}
+                      >
+                        <td className="px-4 py-3">
+                          <input
+                            type="checkbox"
+                            className="h-4 w-4 accent-(--color-ssp-ink-900)"
+                            checked={isChecked}
+                            onChange={() => toggle(u.azureId)}
+                            onClick={(e) => e.stopPropagation()}
+                          />
+                        </td>
+                        <td className="px-4 py-3">
+                          <p className="font-medium text-(--color-text-strong)">{u.name || "—"}</p>
+                          <p className="text-xs text-(--color-subtle)">{u.email}</p>
+                          {!u.accountEnabled && (
+                            <span className="text-xs text-(--color-brand-600)">Disabled in Entra</span>
+                          )}
+                        </td>
+                        <td className="px-4 py-3 text-sm text-(--color-muted)">
+                          {[u.jobTitle, u.department].filter(Boolean).join(" · ") || "—"}
+                        </td>
+                        <td className="px-4 py-3">
+                          {u.alreadyImported ? (
+                            <div className="space-y-1">
+                              <div className="flex flex-wrap items-center gap-1">
+                                <Badge tone="neutral">{u.role}</Badge>
+                                {u.appKeys.map((k) => <Badge key={k} tone="ok">{k}</Badge>)}
+                              </div>
+                              {isChecked && (
+                                <p className="text-[11px] text-(--color-muted)">Selecting will merge new grants</p>
+                              )}
                             </div>
-                            {isChecked && (
-                              <p className="text-[11px] text-(--color-muted)">
-                                Selecting will merge new grants
-                              </p>
-                            )}
-                          </div>
-                        ) : (
-                          <Badge tone="warn">Not in portal</Badge>
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })}
+                          ) : (
+                            <Badge tone="warn">Not in portal</Badge>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
               </tbody>
             </table>
           )}
         </div>
 
-        {/* Grant options + footer */}
-        <div className="border-t border-(--color-border-soft) bg-(--color-surface-0) px-6 py-4">
-          {selected.size > 0 && (
-            <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-              <Field label="Company">
-                <Select value={companyCode} onChange={(e) => setCompanyCode(e.target.value)}>
-                  <option value="">— none —</option>
-                  {org.companies.map((c) => (
-                    <option key={c.code} value={c.code}>{c.name}</option>
-                  ))}
-                </Select>
-              </Field>
-              <Field label="Department">
-                <Select value={departmentCode} onChange={(e) => setDepartmentCode(e.target.value)}>
-                  <option value="">— none —</option>
-                  {org.departments.map((d) => (
-                    <option key={d.code} value={d.code}>{d.name}</option>
-                  ))}
-                </Select>
-              </Field>
-              {grantable.length > 0 && (
-                <div className="sm:col-span-2">
-                  <Field label="Grant app access">
-                    <div className="flex flex-wrap gap-4 pt-1">
-                      {grantable.map((app) => (
-                        <label key={app.key} className="flex cursor-pointer items-center gap-2 text-sm text-(--color-text)">
-                          <input
-                            type="checkbox"
-                            className="h-4 w-4 accent-(--color-ssp-ink-900)"
-                            checked={grantAppKeys.includes(app.key)}
-                            onChange={(e) =>
-                              setGrantAppKeys((prev) =>
-                                e.target.checked ? [...prev, app.key] : prev.filter((k) => k !== app.key)
-                              )
-                            }
-                          />
-                          {app.name}
-                        </label>
-                      ))}
-                    </div>
-                  </Field>
-                </div>
-              )}
-            </div>
-          )}
+        {/* Footer — always same structure, no height change */}
+        <div className="shrink-0 border-t border-(--color-border-soft) bg-(--color-surface-0) px-6 py-4">
+          <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <Field label="Company">
+              <Select value={companyCode} onChange={(e) => setCompanyCode(e.target.value)} disabled={selected.size === 0}>
+                <option value="">— none —</option>
+                {org.companies.map((c) => <option key={c.code} value={c.code}>{c.name}</option>)}
+              </Select>
+            </Field>
+            <Field label="Department">
+              <Select value={departmentCode} onChange={(e) => setDepartmentCode(e.target.value)} disabled={selected.size === 0}>
+                <option value="">— none —</option>
+                {org.departments.map((d) => <option key={d.code} value={d.code}>{d.name}</option>)}
+              </Select>
+            </Field>
+            {grantable.length > 0 && (
+              <div className="sm:col-span-2">
+                <Field label="Grant app access">
+                  <div className="flex flex-wrap gap-4 pt-1">
+                    {grantable.map((app) => (
+                      <label
+                        key={app.key}
+                        className={cn(
+                          "flex items-center gap-2 text-sm text-(--color-text)",
+                          selected.size === 0 ? "cursor-not-allowed opacity-50" : "cursor-pointer"
+                        )}
+                      >
+                        <input
+                          type="checkbox"
+                          className="h-4 w-4 accent-(--color-ssp-ink-900)"
+                          checked={grantAppKeys.includes(app.key)}
+                          disabled={selected.size === 0}
+                          onChange={(e) =>
+                            setGrantAppKeys((prev) =>
+                              e.target.checked ? [...prev, app.key] : prev.filter((k) => k !== app.key)
+                            )
+                          }
+                        />
+                        {app.name}
+                      </label>
+                    ))}
+                  </div>
+                </Field>
+              </div>
+            )}
+          </div>
 
           <div className="flex items-center justify-between gap-4">
             <p className="text-sm text-(--color-muted)">
-              {selected.size > 0
-                ? <><strong className="text-(--color-text-strong)">{selected.size}</strong> {selected.size === 1 ? "person" : "people"} selected</>
-                : "Select employees above to import"
-              }
+              {selected.size > 0 ? (
+                <><strong className="text-(--color-text-strong)">{selected.size}</strong> {selected.size === 1 ? "person" : "people"} selected</>
+              ) : (
+                `${displayResults.length} ${displayResults.length === 1 ? "employee" : "employees"} shown`
+              )}
             </p>
             <div className="flex gap-2">
               <Button variant="secondary" onClick={onClose}>Close</Button>
@@ -366,8 +387,7 @@ export default function ImportFromEntraModal({ onClose, onSuccess, onImported }:
                   ? "Importing…"
                   : selected.size > 0
                     ? `Import ${selected.size} ${selected.size === 1 ? "person" : "people"}`
-                    : "Import"
-                }
+                    : "Import"}
               </Button>
             </div>
           </div>
