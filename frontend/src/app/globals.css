@@ -46,6 +46,47 @@
   --shadow-card-hover: 0 12px 32px rgba(2, 6, 23, 0.1);
 }
 
+/* ─── Dark mode token overrides ────────────────────────────────────────────
+   Applied when ThemeProvider sets data-theme="dark" on <html>.
+   Every semantic token used in the app is overridden; brand palette &
+   sidebar constants are intentionally left untouched.
+   ─────────────────────────────────────────────────────────────────────────── */
+html[data-theme="dark"] {
+  /* Surfaces */
+  --color-surface-0: #0c1117;
+  --color-surface-1: #141c27;
+  --color-surface-2: #1e2736;
+
+  /* Borders */
+  --color-border: rgba(255, 255, 255, 0.10);
+  --color-border-soft: rgba(255, 255, 255, 0.07);
+
+  /* Text */
+  --color-text: rgba(220, 232, 244, 0.92);
+  --color-text-strong: #dce8f4;
+  --color-muted: rgba(155, 178, 200, 0.85);
+  --color-subtle: rgba(120, 148, 175, 0.6);
+
+  /* SSP ink — dark navy headings flip to light blue-white */
+  --color-ssp-ink-900: #9ecfe8;
+  --color-ssp-ink-800: #7ab9d8;
+
+  /* Status — slightly brighter for contrast on dark bg */
+  --color-ok-500: #10b981;
+  --color-warn-500: #f59e0b;
+
+  /* Brand red — inverted range so error states read on dark */
+  --color-brand-50: #2d0a0b;
+  --color-brand-100: #3f0d10;
+  --color-brand-200: #5a1517;
+  --color-brand-600: #f87171;
+  --color-brand-700: #ef4444;
+
+  /* Shadows */
+  --shadow-card: 0 4px 20px rgba(0, 0, 0, 0.45);
+  --shadow-card-hover: 0 8px 28px rgba(0, 0, 0, 0.55);
+}
+
 body {
   background: var(--color-surface-0);
   color: var(--color-text);

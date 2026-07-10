@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useSession } from "next-auth/react"; // keep in Portal only
 import { ChevronDown, LogOut, Menu, ShieldCheck } from "lucide-react";
 import ProfileAvatar from "@/components/ui/ProfileAvatar";
+import ThemeToggle from "@/components/ui/ThemeToggle";
 import { NEXT_PUBLIC_ORIGIN } from "@/app/config/env";
 import { usePortalData } from "@/components/portal/PortalDataProvider";
 
@@ -55,7 +56,10 @@ export default function Navbar({ onToggleSidebar }: NavbarProps) {
 
       <div className="hidden lg:block" />
 
-      {/* Right: user + dropdown */}
+      {/* Right: theme toggle + user dropdown */}
+      <div className="flex items-center gap-1">
+        <ThemeToggle />
+
       <div className="relative flex items-center gap-2" ref={dropdownRef}>
         <button
           onClick={() => setDropdownOpen((prev) => !prev)}
@@ -100,6 +104,7 @@ export default function Navbar({ onToggleSidebar }: NavbarProps) {
             </a>
           </div>
         )}
+      </div>
       </div>
     </header>
   );

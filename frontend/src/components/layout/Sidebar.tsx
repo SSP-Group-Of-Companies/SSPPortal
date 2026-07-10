@@ -3,7 +3,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, ShieldCheck, Lock, X } from "lucide-react";
+import { LayoutDashboard, ShieldCheck, Lock, Settings, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { usePortalData } from "@/components/portal/PortalDataProvider";
 import AppIcon from "@/components/portal/AppIcon";
@@ -149,8 +149,22 @@ export default function Sidebar({ isOpen, onClose, isDesktop }: SidebarProps) {
         )}
       </nav>
 
-      <div className="border-t border-white/8 px-5 py-3">
-        <p className="text-[10px] text-white/40">© {new Date().getFullYear()} SSP Group of Companies</p>
+      {/* Bottom: Settings + copyright */}
+      <div className="border-t border-white/8 px-3 py-3">
+        <Link
+          href="/settings"
+          onClick={() => !isDesktop && onClose()}
+          className={cn(
+            "focus-ring mb-2 flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition",
+            pathname === "/settings"
+              ? "bg-(--color-sidebar-active) font-medium text-white"
+              : "text-white/60 hover:bg-(--color-sidebar-hover) hover:text-white/90"
+          )}
+        >
+          <Settings className="h-4 w-4 shrink-0" />
+          Settings
+        </Link>
+        <p className="px-3 text-[10px] text-white/30">© {new Date().getFullYear()} SSP Group of Companies</p>
       </div>
     </aside>
   );

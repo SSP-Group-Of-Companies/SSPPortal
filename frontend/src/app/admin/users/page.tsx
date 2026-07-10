@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Download } from "lucide-react";
 import { Badge, Button, EmptyRow, Field, PageHeader, Pagination, Select, Table, TextInput } from "@/components/admin/ui";
+import { useDebounce } from "@/hooks/useDebounce";
 import { ToastContainer } from "@/components/ui/Toast";
 import { useToast } from "@/hooks/useToast";
 import { usePortalData } from "@/components/portal/PortalDataProvider";
@@ -42,24 +43,29 @@ export default function AdminUsersPage() {
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [query, setQuery] = useState("");
-  const [search, setSearch] = useState("");
+  const debouncedQuery = useDebounce(query, 350);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState<DirectoryUser | null>(null);
   const [showImport, setShowImport] = useState(false);
   const [apps, setApps] = useState<RegistryApp[]>([]);
   const [org, setOrg] = useState<OrgData>({ companies: [], departments: [] });
 
+  // Reset to page 1 whenever the search query changes.
+  useEffect(() => {
+    setPage(1);
+  }, [debouncedQuery]);
+
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch(`/api/admin/users?q=${encodeURIComponent(search)}&page=${page}`);
+      const res = await fetch(`/api/admin/users?q=${encodeURIComponent(debouncedQuery)}&page=${page}`);
       const data = await res.json();
       setUsers(data.users ?? []);
       setTotal(data.total ?? 0);
     } finally {
       setLoading(false);
     }
-  }, [search, page]);
+  }, [debouncedQuery, page]);
 
   useEffect(() => {
     void load();
@@ -90,19 +96,13 @@ export default function AdminUsersPage() {
         }
       />
 
-      <form
-        className="mb-4 flex max-w-md gap-2"
-        onSubmit={(e) => {
-          e.preventDefault();
-          setPage(1);
-          setSearch(query);
-        }}
-      >
-        <TextInput placeholder="Search by name or email…" value={query} onChange={(e) => setQuery(e.target.value)} />
-        <Button type="submit" variant="secondary">
-          Search
-        </Button>
-      </form>
+      <div className="mb-4 max-w-md">
+        <TextInput
+          placeholder="Search by name or email…"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+        />
+      </div>
 
       <Table head={["User", "Role", "Status", "Company", "Department", "App grants", "Last login", ""]}>
         {loading ? (
