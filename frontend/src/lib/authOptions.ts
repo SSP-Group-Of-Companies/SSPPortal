@@ -105,7 +105,21 @@ export const authOptions: AuthOptions = {
       if (now - refreshedAt > CLAIMS_REFRESH_SECONDS) {
         try {
           const azureId = (typeof token.userId === "string" && token.userId) || token.sub || "";
-          const record = azureId ? await getUserByAzureId(azureId) : null;
+          let record = azureId ? await getUserByAzureId(azureId) : null;
+
+          // Self-heal sessions issued before the platform launch: the cookie
+          // is valid but no directory record exists (signIn never ran under
+          // the new code). Provision from the token instead of forcing a
+          // re-login. Entra groups sync on their next real sign-in.
+          if (!record && azureId && typeof token.email === "string" && token.email) {
+            record = await provisionUser({
+              azureId,
+              email: token.email,
+              name: typeof token.name === "string" ? token.name : "",
+              image: typeof token.picture === "string" ? token.picture : "",
+            });
+          }
+
           if (record) {
             const claims = toClaims(record);
             token.uid = claims.uid;

@@ -1,16 +1,19 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import DashboardShell from "@/components/layout/DashboardShell";
 import { usePortalData, type PortalApp } from "@/components/portal/PortalDataProvider";
 import AppIcon from "@/components/portal/AppIcon";
-import { ArrowUpRight, Clock, Lock } from "lucide-react";
+import { ArrowUpRight, Clock, Lock, ShieldAlert } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export default function DashboardPage() {
   return (
     <DashboardShell>
-      <Launcher />
+      <Suspense fallback={null}>
+        <Launcher />
+      </Suspense>
     </DashboardShell>
   );
 }
@@ -25,6 +28,11 @@ function greeting(): string {
 function Launcher() {
   const { apps, user, loading, error, pendingRequests, refresh } = usePortalData();
   const firstName = (user?.name ?? "").split(" ")[0] || "there";
+
+  // Subapps redirect here with ?denied=<appKey> when the portal has not
+  // granted the user access to that application.
+  const deniedKey = useSearchParams().get("denied");
+  const deniedApp = deniedKey ? apps.find((a) => a.key === deniedKey) : undefined;
 
   const accessible = apps.filter((a) => a.hasAccess && a.status !== "coming_soon");
   const locked = apps.filter((a) => !a.hasAccess && a.status !== "coming_soon");
@@ -41,6 +49,18 @@ function Launcher() {
           Your central access point to SSP internal systems.
         </p>
       </div>
+
+      {deniedKey && !loading && (
+        <div className="portal-card mb-6 flex items-start gap-3 rounded-xl border-l-4 border-l-(--color-warn-500) px-5 py-4">
+          <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0 text-(--color-warn-500)" />
+          <p className="text-sm leading-relaxed text-(--color-text)">
+            You don&apos;t have access to <strong>{deniedApp?.name ?? deniedKey}</strong> yet.
+            {deniedApp && !deniedApp.hasAccess
+              ? " Use the Request access button on its card below, or contact your department head."
+              : " If you were just granted access, wait a few minutes and try again."}
+          </p>
+        </div>
+      )}
 
       {error && (
         <div className="portal-card mb-6 rounded-xl border-l-4 border-l-(--color-brand-600) px-5 py-4 text-sm text-(--color-text)">
