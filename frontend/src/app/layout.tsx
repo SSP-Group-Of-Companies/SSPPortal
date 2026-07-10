@@ -37,3 +37,5 @@ export default function RootLayout({
     </html>
   );
 }
+
+//code to seed the DB: curl.exe -X POST "https://www.ssp4you.com/api/admin/seed" -H "Cookie: SSP_AUTH_TOKEN=YOUR_FULL_TOKEN"
