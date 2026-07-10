@@ -59,8 +59,10 @@ export default function ImportFromEntraModal({ onClose, onSuccess, onImported }:
   const inputRef = useRef<HTMLInputElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const requestIdRef = useRef(0);
+  const lastFetchedQueryRef = useRef<string | null>(null);
 
   const fetchDirectory = useCallback(async (q: string) => {
+    lastFetchedQueryRef.current = q;
     const id = ++requestIdRef.current;
     if (q.trim()) setSearching(true);
     try {
@@ -74,7 +76,12 @@ export default function ImportFromEntraModal({ onClose, onSuccess, onImported }:
       const users: GraphResult[] = data.users ?? [];
       setAllResults(users);
       setDisplayResults(users);
-      setSelected(new Set());
+      // Prune selections that no longer exist in the results instead of
+      // wiping everything — clicks made while a fetch was in flight survive.
+      setSelected((prev) => {
+        const valid = new Set(users.map((u) => u.azureId));
+        return new Set([...prev].filter((id) => valid.has(id)));
+      });
       setLoadError(null);
     } catch {
       if (id !== requestIdRef.current) return;
@@ -99,31 +106,36 @@ export default function ImportFromEntraModal({ onClose, onSuccess, onImported }:
     })();
   }, [fetchDirectory]);
 
-  // As you type: instantly filter the in-memory list so the UI responds,
-  // then debounce a real Entra search for anything the local list might miss.
+  // When user types: instantly filter the in-memory list for immediate feedback,
+  // then debounce a real Graph search for anything the local cache might miss.
+  //
+  // allResults is intentionally NOT in the dependency array. When a fetch lands,
+  // fetchDirectory already calls setDisplayResults directly. Including allResults
+  // here creates a feedback loop:
+  //   allResults changes → effect fires → debounce → fetchDirectory → setSelected(new Set())
+  //   → selection wiped every 400 ms, making checkboxes impossible to hold.
   useEffect(() => {
     const q = query.trim().toLowerCase();
+    setDisplayResults(
+      q
+        ? allResults.filter(
+            (u) => u.name.toLowerCase().includes(q) || u.email.toLowerCase().includes(q)
+          )
+        : allResults
+    );
 
-    // Instant client-side filter so results update as soon as you type
-    if (q) {
-      setDisplayResults(
-        allResults.filter(
-          (u) => u.name.toLowerCase().includes(q) || u.email.toLowerCase().includes(q)
-        )
-      );
-    } else {
-      setDisplayResults(allResults);
-    }
-
-    // Then fire a real Entra search after 400ms for accuracy
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => {
-      void fetchDirectory(query);
+      // Skip if this exact query was already fetched (e.g. the mount load) —
+      // avoids a redundant Graph round trip and any churn it causes.
+      if (lastFetchedQueryRef.current !== query) void fetchDirectory(query);
     }, 400);
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };
-  }, [query, allResults, fetchDirectory]);
+    // allResults intentionally excluded — see comment above
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [query, fetchDirectory]);
 
   function toggle(azureId: string) {
     setSelected((prev) => {
@@ -134,13 +146,24 @@ export default function ImportFromEntraModal({ onClose, onSuccess, onImported }:
     });
   }
 
+  // "Select all" operates on the visible rows only, and must not clobber
+  // selections hidden by the current filter.
   function toggleAll() {
-    if (selected.size === displayResults.length) setSelected(new Set());
-    else setSelected(new Set(displayResults.map((r) => r.azureId)));
+    setSelected((prev) => {
+      const next = new Set(prev);
+      const everyVisibleSelected = displayResults.length > 0 && displayResults.every((r) => next.has(r.azureId));
+      for (const r of displayResults) {
+        if (everyVisibleSelected) next.delete(r.azureId);
+        else next.add(r.azureId);
+      }
+      return next;
+    });
   }
 
   async function runImport() {
-    const chosen = displayResults.filter((r) => selected.has(r.azureId));
+    // Import from the full fetched list, not the filtered view — a search
+    // typed after selecting must not silently drop hidden selections.
+    const chosen = allResults.filter((r) => selected.has(r.azureId));
     if (!chosen.length) return;
     setImporting(true);
     try {
@@ -175,7 +198,7 @@ export default function ImportFromEntraModal({ onClose, onSuccess, onImported }:
   }
 
   const grantable = apps.filter((a) => a.restricted && a.status !== "archived");
-  const allSelected = displayResults.length > 0 && selected.size === displayResults.length;
+  const allSelected = displayResults.length > 0 && displayResults.every((r) => selected.has(r.azureId));
 
   return (
     <div
