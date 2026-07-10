@@ -61,7 +61,7 @@ export default function AdminOrganizationPage() {
           {loading ? (
             <EmptyRow colSpan={4} message="Loading…" />
           ) : companies.length === 0 ? (
-            <EmptyRow colSpan={4} message="No companies yet — run the platform seed from Overview." />
+            <EmptyRow colSpan={4} message="No companies registered yet. Add one using the button above." />
           ) : (
             companies.map((c) => (
               <tr key={c.id} className="hover:bg-(--color-surface-0)">
@@ -90,7 +90,7 @@ export default function AdminOrganizationPage() {
           {loading ? (
             <EmptyRow colSpan={4} message="Loading…" />
           ) : departments.length === 0 ? (
-            <EmptyRow colSpan={4} message="No departments yet — run the platform seed from Overview." />
+            <EmptyRow colSpan={4} message="No departments registered yet. Add one using the button above." />
           ) : (
             departments.map((d) => (
               <tr key={d.id} className="hover:bg-(--color-surface-0)">

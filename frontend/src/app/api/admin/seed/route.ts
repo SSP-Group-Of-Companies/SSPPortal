@@ -11,6 +11,14 @@ import { logAudit } from "@/lib/platform/audit";
 /**
  * POST /api/admin/seed — idempotent platform bootstrap (superadmin only).
  *
+ * Intended for new-environment setup (local dev, staging, fresh production
+ * database). Call it with a superadmin session cookie from a deploy script
+ * or one-time curl — NOT exposed in the admin UI.
+ *
+ * Example (with a valid superadmin cookie):
+ *   curl -X POST https://www.ssp4you.com/api/admin/seed \
+ *        -H "Cookie: <AUTH_COOKIE_NAME>=<token>"
+ *
  * Upserts the SSP operating companies, group departments, and the initial
  * app registry. Safe to run repeatedly: existing records are only created
  * if missing — nothing an admin has since edited is overwritten.

@@ -60,7 +60,7 @@ export default function AdminAppsPage() {
         {loading ? (
           <EmptyRow colSpan={7} message="Loading…" />
         ) : apps.length === 0 ? (
-          <EmptyRow colSpan={7} message="No apps registered yet. Run the platform seed from Overview, or register one." />
+          <EmptyRow colSpan={7} message="No apps registered yet. Register one using the button above." />
         ) : (
           apps.map((app) => (
             <tr key={app.id} className="hover:bg-(--color-surface-0)">
