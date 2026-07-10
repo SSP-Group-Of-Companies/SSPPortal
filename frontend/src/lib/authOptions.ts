@@ -1,8 +1,35 @@
 import AzureADProvider from "next-auth/providers/azure-ad";
 import type { AuthOptions } from "next-auth";
-import { AZURE_AD_CLIENT_ID, AZURE_AD_CLIENT_SECRET, AZURE_AD_TENANT_ID, AUTH_COOKIE_DOMAIN, AUTH_COOKIE_NAME, NEXTAUTH_SECRET } from "@/app/config/env";
+import {
+  AZURE_AD_CLIENT_ID,
+  AZURE_AD_CLIENT_SECRET,
+  AZURE_AD_TENANT_ID,
+  AUTH_COOKIE_DOMAIN,
+  AUTH_COOKIE_NAME,
+  NEXTAUTH_SECRET,
+  NEXT_PUBLIC_ALLOWED_CALLBACK_HOSTS,
+  NEXT_PUBLIC_ORIGIN,
+} from "@/app/config/env";
 import { provisionUser, getUserByAzureId, toClaims } from "@/lib/platform/users";
 import { logAudit } from "@/lib/platform/audit";
+
+/**
+ * Server-side callbackUrl whitelist: the portal itself plus the subapp hosts
+ * in NEXT_PUBLIC_ALLOWED_CALLBACK_HOSTS. This is the authoritative check —
+ * the login page applies the same rule client-side, but nothing stops a
+ * crafted /api/auth/signin?callbackUrl=… from bypassing the page, so the
+ * redirect callback must never trust an absolute URL it hasn't validated
+ * (open-redirect protection on the company's central login).
+ */
+function isAllowedRedirectHost(hostname: string): boolean {
+  const portalHostname = NEXT_PUBLIC_ORIGIN ? new URL(NEXT_PUBLIC_ORIGIN).hostname : "";
+  if (hostname === portalHostname) return true;
+  return (NEXT_PUBLIC_ALLOWED_CALLBACK_HOSTS ?? "")
+    .split(",")
+    .map((h) => h.trim())
+    .filter(Boolean)
+    .some((h) => hostname === h || hostname.endsWith(`.${h}`));
+}
 
 /**
  * How often JWT claims (role, status, company, department) are re-read from
@@ -159,8 +186,15 @@ export const authOptions: AuthOptions = {
     },
 
     async redirect({ url, baseUrl }) {
-      // Allow absolute callbackUrl (e.g., returning to a sub‑app)
-      if (url.startsWith("http")) return url;
+      // Absolute callbackUrl (e.g. returning to a subapp) — only to
+      // whitelisted SSP hosts; anything else falls back to the portal.
+      if (url.startsWith("http")) {
+        try {
+          return isAllowedRedirectHost(new URL(url).hostname) ? url : baseUrl;
+        } catch {
+          return baseUrl;
+        }
+      }
       return new URL(url, baseUrl).toString();
     },
   },
