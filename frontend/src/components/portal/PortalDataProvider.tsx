@@ -31,6 +31,8 @@ interface PortalData {
   user: PortalUser | null;
   loading: boolean;
   error: string | null;
+  /** True when the error is an expired/unrecognized session — signing in again resolves it. */
+  needsReauth: boolean;
   refresh: () => Promise<void>;
 }
 
@@ -41,6 +43,7 @@ const PortalDataContext = createContext<PortalData>({
   user: null,
   loading: true,
   error: null,
+  needsReauth: false,
   refresh: async () => {},
 });
 
@@ -57,12 +60,27 @@ export default function PortalDataProvider({ children }: { children: ReactNode }
     user: null,
     loading: true,
     error: null,
+    needsReauth: false,
   });
 
   const refresh = useCallback(async () => {
     try {
       const res = await fetch("/api/portal/my-apps", { cache: "no-store" });
-      if (!res.ok) throw new Error(`Failed to load portal data (${res.status})`);
+      if (!res.ok) {
+        // 401 here means the session cookie is valid but carries no directory
+        // record (e.g. a session from before an account was linked/created).
+        // Signing in again is the correct, standard fix — not a retry loop.
+        if (res.status === 401) {
+          setState((prev) => ({
+            ...prev,
+            loading: false,
+            error: "Your session needs to be refreshed.",
+            needsReauth: true,
+          }));
+          return;
+        }
+        throw new Error(`Failed to load portal data (${res.status})`);
+      }
       const data = await res.json();
       setState({
         apps: data.apps ?? [],
@@ -71,12 +89,14 @@ export default function PortalDataProvider({ children }: { children: ReactNode }
         user: data.user ?? null,
         loading: false,
         error: null,
+        needsReauth: false,
       });
     } catch (err) {
       setState((prev) => ({
         ...prev,
         loading: false,
         error: err instanceof Error ? err.message : "Failed to load portal data",
+        needsReauth: false,
       }));
     }
   }, []);

@@ -100,25 +100,23 @@ export const authOptions: AuthOptions = {
 
       // Subsequent requests: periodically re-sync claims from the directory
       // so role changes / disables propagate without a re-login.
+      //
+      // Intentionally NOT self-healing here: identity is only ever created
+      // or relinked during a real Microsoft sign-in (see the `account`
+      // branch above and provisionUser's email-reconciliation), where we
+      // have a verified, fresh `oid`. Reconstructing a directory record from
+      // a cached token during a background refresh means trusting whatever
+      // identity value that token happened to carry (e.g. a stale/opaque
+      // `sub` from a session issued before this claims system existed),
+      // which risks filing the user under the wrong key. If no record is
+      // found here, the session simply carries no elevated claims until the
+      // user signs in again — a clear, correct outcome rather than a guess.
       const refreshedAt = typeof token.claimsRefreshedAt === "number" ? token.claimsRefreshedAt : 0;
       const now = Math.floor(Date.now() / 1000);
       if (now - refreshedAt > CLAIMS_REFRESH_SECONDS) {
         try {
           const azureId = (typeof token.userId === "string" && token.userId) || token.sub || "";
-          let record = azureId ? await getUserByAzureId(azureId) : null;
-
-          // Self-heal sessions issued before the platform launch: the cookie
-          // is valid but no directory record exists (signIn never ran under
-          // the new code). Provision from the token instead of forcing a
-          // re-login. Entra groups sync on their next real sign-in.
-          if (!record && azureId && typeof token.email === "string" && token.email) {
-            record = await provisionUser({
-              azureId,
-              email: token.email,
-              name: typeof token.name === "string" ? token.name : "",
-              image: typeof token.picture === "string" ? token.picture : "",
-            });
-          }
+          const record = azureId ? await getUserByAzureId(azureId) : null;
 
           if (record) {
             const claims = toClaims(record);

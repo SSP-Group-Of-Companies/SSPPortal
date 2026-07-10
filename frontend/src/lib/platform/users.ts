@@ -36,7 +36,30 @@ export async function provisionUser(input: ProvisionInput): Promise<UserDoc> {
   const email = input.email.toLowerCase().trim();
   const isBootstrapSuperadmin = bootstrapSuperadmins().has(email);
 
-  const existing = await User.findOne({ azureId: input.azureId });
+  let existing = await User.findOne({ azureId: input.azureId });
+
+  // Reconcile by email when the azureId doesn't match: this happens when a
+  // record was created from an opaque `sub` (e.g. a pre-launch session, or
+  // a self-heal that ran before a real `oid` was available) and the user
+  // then signs in fresh with their canonical Azure object id. Email is the
+  // durable human identity here, so we relink the record to the new azureId
+  // instead of creating a duplicate that would collide on the unique email
+  // index.
+  if (!existing) {
+    const byEmail = await User.findOne({ email });
+    if (byEmail && byEmail.azureId !== input.azureId) {
+      byEmail.azureId = input.azureId;
+      existing = byEmail;
+      await logAudit({
+        action: "user.provisioned",
+        actorEmail: email,
+        targetType: "user",
+        targetId: byEmail._id.toString(),
+        targetLabel: email,
+        meta: { reconciledAzureId: true },
+      });
+    }
+  }
 
   if (!existing) {
     const created = await User.create({

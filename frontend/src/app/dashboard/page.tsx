@@ -7,6 +7,7 @@ import { usePortalData, type PortalApp } from "@/components/portal/PortalDataPro
 import AppIcon from "@/components/portal/AppIcon";
 import { ArrowUpRight, Clock, Lock, ShieldAlert } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { NEXT_PUBLIC_ORIGIN } from "@/app/config/env";
 
 export default function DashboardPage() {
   return (
@@ -26,8 +27,9 @@ function greeting(): string {
 }
 
 function Launcher() {
-  const { apps, user, loading, error, pendingRequests, refresh } = usePortalData();
+  const { apps, user, loading, error, needsReauth, pendingRequests, refresh } = usePortalData();
   const firstName = (user?.name ?? "").split(" ")[0] || "there";
+  const logoutHref = NEXT_PUBLIC_ORIGIN ? new URL("/api/auth/logout", NEXT_PUBLIC_ORIGIN).toString() : "/api/auth/logout";
 
   // Subapps redirect here with ?denied=<appKey> when the portal has not
   // granted the user access to that application.
@@ -62,7 +64,17 @@ function Launcher() {
         </div>
       )}
 
-      {error && (
+      {error && needsReauth && (
+        <div className="portal-card mb-6 rounded-xl border-l-4 border-l-(--color-brand-600) px-5 py-4 text-sm text-(--color-text)">
+          {error} Please{" "}
+          <a href={logoutHref} className="font-medium text-(--color-ssp-cyan-600) underline">
+            sign out and sign in again
+          </a>{" "}
+          to continue.
+        </div>
+      )}
+
+      {error && !needsReauth && (
         <div className="portal-card mb-6 rounded-xl border-l-4 border-l-(--color-brand-600) px-5 py-4 text-sm text-(--color-text)">
           {error} —{" "}
           <button onClick={() => refresh()} className="font-medium text-(--color-ssp-cyan-600) underline">
