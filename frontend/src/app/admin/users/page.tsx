@@ -74,6 +74,9 @@ export default function AdminUsersPage() {
     })();
   }, []);
 
+  const companyName = (code: string) => org.companies.find((c) => c.code === code)?.name ?? code;
+  const departmentName = (code: string) => org.departments.find((d) => d.code === code)?.name ?? code;
+
   return (
     <div>
       <PageHeader
@@ -119,8 +122,8 @@ export default function AdminUsersPage() {
               <td className="px-4 py-3">
                 <Badge tone={u.status === "active" ? "ok" : "danger"}>{u.status}</Badge>
               </td>
-              <td className="px-4 py-3 text-(--color-muted)">{u.companyCode || "—"}</td>
-              <td className="px-4 py-3 text-(--color-muted)">{u.departmentCode || "—"}</td>
+              <td className="px-4 py-3 text-(--color-muted)">{u.companyCode ? companyName(u.companyCode) : "—"}</td>
+              <td className="px-4 py-3 text-(--color-muted)">{u.departmentCode ? departmentName(u.departmentCode) : "—"}</td>
               <td className="px-4 py-3 text-(--color-muted)">{u.appKeys.length > 0 ? u.appKeys.join(", ") : "—"}</td>
               <td className="whitespace-nowrap px-4 py-3 text-(--color-muted)">
                 {u.lastLoginAt ? new Date(u.lastLoginAt).toLocaleDateString() : "—"}

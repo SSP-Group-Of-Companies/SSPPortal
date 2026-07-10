@@ -27,6 +27,13 @@ export const authOptions: AuthOptions = {
       clientId: AZURE_AD_CLIENT_ID,
       clientSecret: AZURE_AD_CLIENT_SECRET,
       tenantId: AZURE_AD_TENANT_ID,
+      authorization: {
+        params: {
+          // Always show the Microsoft account picker so shared machines /
+          // people with multiple work accounts can choose the right one.
+          prompt: "select_account",
+        },
+      },
     }),
   ],
   session: { strategy: "jwt", maxAge: 60 * 60 * 24 * 7 }, // 7 days

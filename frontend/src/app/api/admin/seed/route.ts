@@ -39,7 +39,8 @@ const DEPARTMENTS = [
   { code: "dispatch", name: "Dispatch", description: "Load planning and driver dispatch" },
   { code: "operations", name: "Operations", description: "Cross-company operations and equipment" },
   { code: "sales", name: "Sales", description: "Customer acquisition and account management" },
-  { code: "it", name: "Software & IT", description: "Internal software platform and IT services" },
+  { code: "software", name: "Software", description: "Internal software engineering and product" },
+  { code: "it", name: "IT", description: "Infrastructure, identity, and IT support" },
 ];
 
 const APPS = [
@@ -86,7 +87,14 @@ export async function POST(req: NextRequest) {
     if (res.upsertedCount) created.companies++;
   }
   for (const d of DEPARTMENTS) {
-    const res = await Department.updateOne({ code: d.code }, { $setOnInsert: d }, { upsert: true });
+    const res = await Department.updateOne(
+      { code: d.code },
+      {
+        $set: { name: d.name, description: d.description },
+        $setOnInsert: { code: d.code, isActive: true },
+      },
+      { upsert: true }
+    );
     if (res.upsertedCount) created.departments++;
   }
   for (const a of APPS) {
