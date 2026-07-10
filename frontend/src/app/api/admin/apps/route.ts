@@ -18,7 +18,6 @@ function serializeApp(a: InstanceType<typeof App> | Record<string, unknown>) {
     icon: app.icon,
     departmentCode: app.departmentCode,
     status: app.status,
-    entraGroupId: app.entraGroupId,
     restricted: app.restricted,
     sortOrder: app.sortOrder,
   };
@@ -68,7 +67,6 @@ export async function POST(req: NextRequest) {
     icon: String(body.icon ?? "AppWindow").trim() || "AppWindow",
     departmentCode: String(body.departmentCode ?? "").toLowerCase().trim(),
     status,
-    entraGroupId: String(body.entraGroupId ?? "").trim(),
     restricted: body.restricted !== false,
     sortOrder: Number(body.sortOrder ?? 100) || 100,
   });

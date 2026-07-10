@@ -1,8 +1,12 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { Download } from "lucide-react";
 import { Badge, Button, EmptyRow, Field, PageHeader, Pagination, Select, Table, TextInput } from "@/components/admin/ui";
+import { ToastContainer } from "@/components/ui/Toast";
+import { useToast } from "@/hooks/useToast";
 import { usePortalData } from "@/components/portal/PortalDataProvider";
+import ImportFromEntraModal from "@/components/admin/ImportFromEntraModal";
 
 interface DirectoryUser {
   id: string;
@@ -33,6 +37,7 @@ const roleTone = (role: string): "danger" | "info" | "neutral" =>
 
 export default function AdminUsersPage() {
   const { user: me } = usePortalData();
+  const { toasts, toast, dismiss } = useToast();
   const [users, setUsers] = useState<DirectoryUser[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -40,6 +45,7 @@ export default function AdminUsersPage() {
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState<DirectoryUser | null>(null);
+  const [showImport, setShowImport] = useState(false);
   const [apps, setApps] = useState<RegistryApp[]>([]);
   const [org, setOrg] = useState<OrgData>({ companies: [], departments: [] });
 
@@ -73,6 +79,12 @@ export default function AdminUsersPage() {
       <PageHeader
         title="User Directory"
         description="Every SSP employee who has signed in. Manage roles, status, organization, and app access."
+        actions={
+          <Button variant="secondary" onClick={() => setShowImport(true)}>
+            <Download className="h-3.5 w-3.5" />
+            Import from Entra
+          </Button>
+        }
       />
 
       <form
@@ -124,6 +136,19 @@ export default function AdminUsersPage() {
       </Table>
 
       <Pagination page={page} pageSize={25} total={total} onPage={setPage} />
+
+      <ToastContainer toasts={toasts} onDismiss={dismiss} />
+
+      {showImport && (
+        <ImportFromEntraModal
+          onClose={() => setShowImport(false)}
+          onSuccess={(title, description) => {
+            const isError = title === "error";
+            toast(isError ? "error" : "success", isError ? description : title, isError ? undefined : description);
+          }}
+          onImported={() => void load()}
+        />
+      )}
 
       {editing && (
         <EditUserPanel

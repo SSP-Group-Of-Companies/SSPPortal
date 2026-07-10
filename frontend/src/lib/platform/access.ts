@@ -16,21 +16,20 @@ export interface ResolvedApp {
   /** Whether this user can open the app right now. */
   hasAccess: boolean;
   /** Why access was granted — useful for admin debugging and the UI. */
-  accessVia: "open" | "role" | "grant" | "entra-group" | null;
+  accessVia: "open" | "role" | "grant" | null;
 }
 
 /**
  * Access policy, evaluated in order:
  *  1. unrestricted apps are open to every active employee
  *  2. portal admins/superadmins can open everything (they govern the platform)
- *  3. a direct grant in the user directory (appKeys)
- *  4. membership in the app's mapped Entra security group
+ *  3. a direct grant in the user directory (appKeys) — set via the admin
+ *     console (approve request, manual grant, or bulk "Import from Entra")
  */
-export function computeAccess(app: AppDoc, user: Pick<UserDoc, "role" | "appKeys" | "entraGroups">): ResolvedApp["accessVia"] {
+export function computeAccess(app: AppDoc, user: Pick<UserDoc, "role" | "appKeys">): ResolvedApp["accessVia"] {
   if (!app.restricted) return "open";
   if (isAdminRole(user.role)) return "role";
   if ((user.appKeys ?? []).includes(app.key)) return "grant";
-  if (app.entraGroupId && (user.entraGroups ?? []).includes(app.entraGroupId)) return "entra-group";
   return null;
 }
 

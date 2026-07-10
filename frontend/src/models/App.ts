@@ -18,9 +18,6 @@ const AppSchema = new Schema(
     // Owning department code (matches Department.code) for sidebar grouping.
     departmentCode: { type: String, lowercase: true, trim: true, default: "" },
     status: { type: String, enum: APP_STATUSES, default: "active" },
-    // Microsoft Entra security group Object ID mapped to this app
-    // (e.g. SSP-App-DriveDock). Group membership grants access automatically.
-    entraGroupId: { type: String, trim: true, default: "" },
     // When false the app is visible to every signed-in employee (no grant needed).
     restricted: { type: Boolean, default: true },
     sortOrder: { type: Number, default: 100 },

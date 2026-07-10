@@ -25,6 +25,7 @@ export function isAdminRole(role: string | undefined | null): boolean {
 /** Audit actions — one vocabulary so the audit log stays queryable. */
 export const AUDIT_ACTIONS = [
   "user.provisioned",
+  "user.imported",
   "user.signed_in",
   "user.role_changed",
   "user.status_changed",

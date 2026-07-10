@@ -16,6 +16,7 @@ interface AuditEntry {
 const ACTION_FILTERS = [
   "",
   "user.provisioned",
+  "user.imported",
   "user.signed_in",
   "user.role_changed",
   "user.status_changed",
@@ -30,7 +31,7 @@ const ACTION_FILTERS = [
 
 const actionTone = (action: string): "danger" | "ok" | "neutral" | "info" => {
   if (action.includes("denied") || action.includes("disabled")) return "danger";
-  if (action.includes("approved") || action.includes("created") || action.includes("provisioned")) return "ok";
+  if (action.includes("approved") || action.includes("created") || action.includes("provisioned") || action.includes("imported")) return "ok";
   if (action.includes("signed_in")) return "neutral";
   return "info";
 };

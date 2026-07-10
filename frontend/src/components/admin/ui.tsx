@@ -81,8 +81,8 @@ export function Table({ head, children }: { head: string[]; children: ReactNode 
       <table className="w-full min-w-160 text-left text-sm">
         <thead>
           <tr className="border-b border-(--color-border-soft)">
-            {head.map((h) => (
-              <th key={h} className="whitespace-nowrap px-4 py-3 text-xs font-semibold uppercase tracking-wider text-(--color-subtle)">
+            {head.map((h, i) => (
+              <th key={`${h}-${i}`} className="whitespace-nowrap px-4 py-3 text-xs font-semibold uppercase tracking-wider text-(--color-subtle)">
                 {h}
               </th>
             ))}

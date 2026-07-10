@@ -13,7 +13,6 @@ interface RegistryApp {
   icon: string;
   departmentCode: string;
   status: string;
-  entraGroupId: string;
   restricted: boolean;
   sortOrder: number;
 }
@@ -56,11 +55,11 @@ export default function AdminAppsPage() {
         actions={<Button onClick={() => setEditing("new")}>Register app</Button>}
       />
 
-      <Table head={["App", "Department", "Status", "Access", "Entra group", "URL", ""]}>
+      <Table head={["App", "Department", "Status", "Access", "URL", ""]}>
         {loading ? (
-          <EmptyRow colSpan={7} message="Loading…" />
+          <EmptyRow colSpan={6} message="Loading…" />
         ) : apps.length === 0 ? (
-          <EmptyRow colSpan={7} message="No apps registered yet. Register one using the button above." />
+          <EmptyRow colSpan={6} message="No apps registered yet. Register one using the button above." />
         ) : (
           apps.map((app) => (
             <tr key={app.id} className="hover:bg-(--color-surface-0)">
@@ -81,9 +80,6 @@ export default function AdminAppsPage() {
               </td>
               <td className="px-4 py-3">
                 <Badge tone={app.restricted ? "warn" : "ok"}>{app.restricted ? "restricted" : "open to all"}</Badge>
-              </td>
-              <td className="max-w-40 truncate px-4 py-3 text-xs text-(--color-muted)" title={app.entraGroupId}>
-                {app.entraGroupId || "—"}
               </td>
               <td className="max-w-48 truncate px-4 py-3 text-xs text-(--color-muted)" title={app.url}>
                 {app.url || "—"}
@@ -133,7 +129,6 @@ function AppEditor({
     icon: app?.icon ?? "AppWindow",
     departmentCode: app?.departmentCode ?? "",
     status: app?.status ?? "active",
-    entraGroupId: app?.entraGroupId ?? "",
     restricted: app?.restricted ?? true,
     sortOrder: app?.sortOrder ?? 100,
   });
@@ -217,15 +212,6 @@ function AppEditor({
             <TextInput type="number" value={form.sortOrder} onChange={(e) => set("sortOrder", Number(e.target.value))} />
           </Field>
           <div className="sm:col-span-2">
-            <Field label="Entra security group Object ID" hint="Members of this Microsoft group get access automatically (e.g. SSP-App-DriveDock)">
-              <TextInput
-                value={form.entraGroupId}
-                onChange={(e) => set("entraGroupId", e.target.value)}
-                placeholder="00000000-0000-0000-0000-000000000000"
-              />
-            </Field>
-          </div>
-          <div className="sm:col-span-2">
             <label className="flex cursor-pointer items-center gap-2.5 text-sm text-(--color-text)">
               <input
                 type="checkbox"
@@ -233,7 +219,7 @@ function AppEditor({
                 checked={form.restricted}
                 onChange={(e) => set("restricted", e.target.checked)}
               />
-              Restricted — users need a grant, Entra group membership, or an admin role to open this app
+              Restricted — users need a direct grant or an admin role to open this app
             </label>
           </div>
         </div>

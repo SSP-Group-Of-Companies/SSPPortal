@@ -43,7 +43,6 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   if (body.url !== undefined) app.url = String(body.url).trim();
   if (body.icon !== undefined) app.icon = String(body.icon).trim() || "AppWindow";
   if (body.departmentCode !== undefined) app.departmentCode = String(body.departmentCode).toLowerCase().trim();
-  if (body.entraGroupId !== undefined) app.entraGroupId = String(body.entraGroupId).trim();
   if (body.restricted !== undefined) app.restricted = body.restricted !== false;
   if (body.sortOrder !== undefined) app.sortOrder = Number(body.sortOrder) || 100;
   if (body.status !== undefined) {

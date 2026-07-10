@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { Badge, Button, EmptyRow, PageHeader, Table } from "@/components/admin/ui";
+import { ToastContainer } from "@/components/ui/Toast";
+import { useToast } from "@/hooks/useToast";
 import { cn } from "@/lib/utils";
 
 interface Request {
@@ -20,6 +22,7 @@ interface Request {
 const FILTERS = ["pending", "approved", "denied"] as const;
 
 export default function AdminAccessRequestsPage() {
+  const { toasts, toast, dismiss } = useToast();
   const [filter, setFilter] = useState<(typeof FILTERS)[number]>("pending");
   const [requests, setRequests] = useState<Request[]>([]);
   const [loading, setLoading] = useState(true);
@@ -41,14 +44,26 @@ export default function AdminAccessRequestsPage() {
   }, [load]);
 
   async function decide(id: string, decision: "approved" | "denied") {
+    const req = requests.find((r) => r.id === id);
     setDeciding(id);
     try {
-      await fetch(`/api/admin/access-requests/${id}`, {
+      const res = await fetch(`/api/admin/access-requests/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ decision }),
       });
+      if (res.ok) {
+        if (decision === "approved") {
+          toast("success", "Access granted", `${req?.userName || req?.userEmail} now has access to ${req?.appKey}.`);
+        } else {
+          toast("success", "Request denied", `${req?.userName || req?.userEmail}'s request for ${req?.appKey} was denied.`);
+        }
+      } else {
+        toast("error", "Action failed", "The request could not be processed. Please try again.");
+      }
       void load();
+    } catch {
+      toast("error", "Action failed", "Could not connect. Please check your connection and try again.");
     } finally {
       setDeciding(null);
     }
@@ -56,6 +71,7 @@ export default function AdminAccessRequestsPage() {
 
   return (
     <div>
+      <ToastContainer toasts={toasts} onDismiss={dismiss} />
       <PageHeader
         title="Access Requests"
         description="Employee requests for restricted applications. Approving writes the app grant onto the user immediately."
