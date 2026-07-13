@@ -3,12 +3,13 @@
 import { Suspense, useMemo, useEffect, useState } from "react";
 import { signIn, useSession } from "next-auth/react";
 import Image from "next/image";
-import Head from "next/head";
 import { useSearchParams, useRouter } from "next/navigation";
-import { Eye, EyeOff } from "lucide-react";
-import { NEXT_PUBLIC_ALLOWED_CALLBACK_HOSTS, NEXT_PUBLIC_ORIGIN } from "../config/env";
+import {
+  NEXT_PUBLIC_ALLOWED_CALLBACK_HOSTS,
+  NEXT_PUBLIC_ORIGIN,
+} from "../config/env";
 
-// --- keep your helper as-is ---
+/** Only allow callback URLs on the portal itself or whitelisted subapp hosts. */
 function isAllowedCallback(urlStr: string | null): string | null {
   if (!urlStr) return null;
 
@@ -18,10 +19,16 @@ function isAllowedCallback(urlStr: string | null): string | null {
   try {
     const url = new URL(urlStr);
 
-    // 1) Enforce https (optional but recommended in prod)
-    if (url.protocol !== "https:") return null;
+    // Allow http on localhost (no Caddy); require https everywhere else.
+    if (url.protocol !== "https:" && url.protocol !== "http:") return null;
+    if (
+      url.protocol === "http:" &&
+      url.hostname !== "localhost" &&
+      url.hostname !== "127.0.0.1"
+    ) {
+      return null;
+    }
 
-    // 2) Compare hostnames (no ports)
     const allowedHosts = (NEXT_PUBLIC_ALLOWED_CALLBACK_HOSTS ?? "")
       .split(",")
       .map((h) => h.trim())
@@ -32,14 +39,11 @@ function isAllowedCallback(urlStr: string | null): string | null {
 
     const hostname = url.hostname;
 
-    const hostnameAllowed = hostname === portalHostname || allowedHosts.some((h) => hostname === h || hostname.endsWith(`.${h}`));
+    const hostnameAllowed =
+      hostname === portalHostname ||
+      allowedHosts.some((h) => hostname === h || hostname.endsWith(`.${h}`));
 
     if (!hostnameAllowed) return null;
-
-    // 3) (Optional) If you want to restrict ports, do it explicitly:
-    // const allowedPorts = new Set(["", "443", "3443", "4443"]);
-    // const port = url.port || (url.protocol === "https:" ? "443" : "");
-    // if (!allowedPorts.has(port)) return null;
 
     return url.toString();
   } catch {
@@ -63,9 +67,7 @@ function LoginPageInner() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const { status } = useSession();
-
-  const [showPassword, setShowPassword] = useState(false);
-  const [rememberMe, setRememberMe] = useState(false);
+  const [signingIn, setSigningIn] = useState(false);
 
   const fallbackAfterLogin = "/dashboard";
 
@@ -81,88 +83,65 @@ function LoginPageInner() {
   }, [status, router, safeCallbackUrl]);
 
   return (
-    <>
-      <Head>
-        <title>SSP Portal | Login</title>
-      </Head>
+    <div className="flex min-h-screen flex-col bg-(--color-surface-0)">
+      {/* Subtle ink wash at the top, echoing the sspgroup.com hero language */}
+      <div
+        className="pointer-events-none absolute inset-x-0 top-0 h-72"
+        style={{
+          background:
+            "linear-gradient(180deg, rgba(11,62,94,0.08) 0%, rgba(16,167,216,0.04) 55%, transparent 100%)",
+        }}
+        aria-hidden
+      />
 
-      <div className="min-h-screen bg-gray-100 flex flex-col items-center justify-center px-4">
-        {/* Logo */}
-        <div className="mb-6">
-          <Image src="/images/SSP-Truck-LineFullLogo.png" alt="SSP Logo" width={180} height={140} priority />
+      <main className="relative flex flex-1 flex-col items-center justify-center px-4 py-12">
+        <div className="mb-8 text-center">
+          <Image
+            src="/images/SSP-Truck-LineFullLogo.png"
+            alt="SSP Group of Companies"
+            width={180}
+            height={60}
+            priority
+            className="mx-auto h-auto w-40 object-contain md:w-44"
+          />
         </div>
 
-        <h1 className="text-2xl md:text-3xl font-bold text-gray-800 mb-1 text-center">Welcome to SSP Portal</h1>
-        <p className="text-sm text-gray-600 mb-8 text-center">Centralized Access to Internal Systems</p>
+        <div className="portal-card w-full max-w-md rounded-2xl p-8">
+          <h1 className="text-center text-xl font-semibold tracking-tight text-(--color-ssp-ink-900)">
+            SSP Portal
+          </h1>
+          <p className="mt-1.5 text-center text-sm text-(--color-muted)">
+            One sign-in for every SSP internal system.
+          </p>
 
-        {/* Login Box */}
-        <div className="w-full max-w-md bg-white rounded-2xl shadow-lg p-8 space-y-6">
-          {/* Email */}
-          <div>
-            <label className="text-sm font-medium text-gray-700 mb-1 flex items-center gap-1">
-              Email Address
-              <span title="Disabled for now – full login with email/password coming soon" className="text-gray-400 cursor-help">
-                ⓘ
-              </span>
-            </label>
+          <button
+            onClick={() => {
+              setSigningIn(true);
+              signIn("azure-ad", { callbackUrl: safeCallbackUrl });
+            }}
+            disabled={signingIn || status === "loading"}
+            className="focus-ring mt-8 flex w-full items-center justify-center gap-2.5 rounded-lg bg-(--color-ssp-ink-900) px-4 py-3 text-sm font-semibold text-white transition hover:bg-(--color-ssp-ink-800) disabled:opacity-70"
+          >
+            <Image
+              src="/images/microsoft-logo.png"
+              alt=""
+              width={18}
+              height={18}
+            />
+            {signingIn ? "Redirecting to Microsoft…" : "Sign in with Microsoft"}
+          </button>
 
-            <div title="Disabled for now – full login with email/password coming soon">
-              <input type="email" disabled placeholder="guest@example.com" className="w-full px-4 py-2 border border-gray-300 rounded-md bg-gray-100 cursor-not-allowed" />
-            </div>
-          </div>
-
-          {/* Password with toggle */}
-          <div>
-            <label className="text-sm font-medium text-gray-700 mb-1 flex items-center gap-1">
-              Password
-              <span title="Disabled for now – full login with email/password coming soon" className="text-gray-400 cursor-help">
-                ⓘ
-              </span>
-            </label>
-            <div className="relative">
-              <div title="Disabled for now – full login with email/password coming soon">
-                <input type={showPassword ? "text" : "password"} disabled placeholder="••••••••" className="w-full px-4 py-2 border border-gray-300 rounded-md bg-gray-100 cursor-not-allowed" />
-              </div>
-              <button
-                type="button"
-                className="absolute inset-y-0 right-2 flex items-center text-gray-500"
-                onClick={() => setShowPassword(!showPassword)}
-                aria-label={showPassword ? "Hide password" : "Show password"}
-              >
-                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-              </button>
-            </div>
-          </div>
-
-          {/* Toggle Switch for Remember Me */}
-          <div className="flex items-center justify-between mt-1">
-            <label className="flex items-center cursor-pointer">
-              <div className="relative">
-                <input type="checkbox" className="sr-only" checked={rememberMe} onChange={() => setRememberMe(!rememberMe)} />
-                <div className={`block w-10 h-6 rounded-full transition ${rememberMe ? "bg-blue-600" : "bg-gray-300"}`} />
-                <div className={`dot absolute left-1 top-1 w-4 h-4 rounded-full bg-white transition ${rememberMe ? "translate-x-4" : ""}`} />
-              </div>
-              <span className="ml-3 text-sm text-gray-700">Remember Me</span>
-            </label>
-          </div>
-
-          {/* Microsoft Login */}
-          <div className="space-y-2">
-            <p className="text-center font-medium text-sm text-gray-600">Company Employees</p>
-            <button
-              onClick={() => {
-                signIn("azure-ad", { callbackUrl: safeCallbackUrl });
-              }}
-              className="w-full bg-black hover:bg-neutral-800 text-white font-semibold py-2.5 rounded-md flex items-center justify-center gap-2 transition duration-200 cursor-pointer"
-            >
-              <Image src="/images/microsoft-logo.png" alt="Microsoft Logo" width={20} height={20} />
-              <span>Sign In With Microsoft</span>
-            </button>
-          </div>
+          <p className="mt-5 text-center text-xs leading-relaxed text-(--color-subtle)">
+            Use your SSP company Microsoft account. Access to individual
+            applications is managed by your administrators.
+          </p>
         </div>
 
-        <footer className="mt-10 text-xs text-gray-500 text-center">© SSP Group of Companies 2025</footer>
-      </div>
-    </>
+        <footer className="mt-10 text-center text-xs text-(--color-subtle)">
+          © {new Date().getFullYear()} SSP Group of Companies · Internal systems
+          — authorized users only
+        </footer>
+      </main>
+    </div>
   );
 }

@@ -1,19 +1,23 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState } from "react";
 import Sidebar from "./Sidebar";
 import Navbar from "./Navbar";
+import PortalDataProvider from "@/components/portal/PortalDataProvider";
 
 interface DashboardShellProps {
   children: React.ReactNode;
 }
 
+/**
+ * Portal shell: persistent dark sidebar on desktop, overlay on mobile,
+ * light content surface. Data (apps, departments, role) is fetched once
+ * here and shared with the sidebar, navbar, and page content.
+ */
 export default function DashboardShell({ children }: DashboardShellProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [isDesktop, setIsDesktop] = useState(false);
-  const sidebarRef = useRef<HTMLDivElement>(null);
+  const [isDesktop, setIsDesktop] = useState(true);
 
-  // Detect screen size
   useEffect(() => {
     const checkScreen = () => setIsDesktop(window.innerWidth >= 1024);
     checkScreen();
@@ -21,91 +25,29 @@ export default function DashboardShell({ children }: DashboardShellProps) {
     return () => window.removeEventListener("resize", checkScreen);
   }, []);
 
-  // Sidebar does NOT open by default
   useEffect(() => {
-    setSidebarOpen(false);
+    if (isDesktop) setSidebarOpen(false);
   }, [isDesktop]);
 
-  // Mobile: close on outside click
-  useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (
-        !isDesktop &&
-        sidebarRef.current &&
-        !sidebarRef.current.contains(e.target as Node)
-      ) {
-        setSidebarOpen(false);
-      }
-    };
-
-    if (sidebarOpen) {
-      document.addEventListener("mousedown", handleClickOutside);
-    } else {
-      document.removeEventListener("mousedown", handleClickOutside);
-    }
-
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
-  }, [sidebarOpen, isDesktop]);
-
   return (
-    <div className="relative h-screen overflow-hidden bg-gradient-to-br from-black via-neutral-900 to-gray-900 bg-fixed">
-      {/* Dark background for glass backdrop effect */}
-      <div className="fixed inset-y-0 left-0 w-64 bg-black z-10" />
+    <PortalDataProvider>
+      <div className="min-h-screen bg-(--color-surface-0)">
+        <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} isDesktop={isDesktop} />
 
-      {/* Sidebar */}
-      <div
-        ref={sidebarRef}
-        className={`fixed inset-y-0 left-0 z-40 w-64 transform transition-all duration-500 ease-in-out will-change-transform
-          ${
-            sidebarOpen
-              ? "translate-x-0 opacity-100 scale-100"
-              : "-translate-x-full opacity-0 scale-[0.98]"
-          }`}
-      >
-        <Sidebar
-          isOpen={sidebarOpen}
-          toggle={() => setSidebarOpen(!sidebarOpen)}
-          isDesktop={isDesktop}
-        />
+        {/* Mobile overlay behind the sidebar */}
+        {sidebarOpen && !isDesktop && (
+          <div
+            className="fixed inset-0 z-35 bg-black/40 backdrop-blur-sm"
+            onClick={() => setSidebarOpen(false)}
+            aria-hidden
+          />
+        )}
+
+        <div className="flex min-h-screen flex-col lg:pl-68">
+          <Navbar onToggleSidebar={() => setSidebarOpen(true)} />
+          <main className="flex-1">{children}</main>
+        </div>
       </div>
-
-      {/* Overlay when sidebar is open */}
-      {sidebarOpen && (
-        <div className="fixed inset-0 z-30 bg-black/30 backdrop-blur-sm transition-opacity duration-500 ease-in-out" />
-      )}
-
-      {isDesktop && !sidebarOpen && (
-        <button
-          onClick={() => setSidebarOpen(true)}
-          title="Open sidebar"
-          className="group fixed top-[.5rem] left-10 z-50 w-10 h-10 bg-white text-black border border-gray-200 shadow-md rounded-full flex items-center justify-center hover:bg-gray-100 hover:ring-2 hover:ring-gray-50 transition-all"
-        >
-          <svg
-            className="w-4 h-4 transition-transform duration-300 group-hover:translate-x-1"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="3"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              d="M9 5l7 7-7 7"
-            />
-          </svg>
-        </button>
-      )}
-
-      {/* Main Content */}
-      <div className="relative z-20 flex flex-col h-full">
-        <Navbar
-          toggleSidebar={() => setSidebarOpen(!sidebarOpen)}
-          isSidebarOpen={sidebarOpen}
-        />
-        <main className="flex-1 overflow-y-auto pt-16 lg:pt-6">{children}</main>
-      </div>
-    </div>
+    </PortalDataProvider>
   );
 }

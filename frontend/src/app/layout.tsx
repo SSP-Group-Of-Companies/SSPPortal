@@ -4,6 +4,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import SessionWrapper from "@/components/SessionWrapper";
+import ThemeProvider from "@/lib/theme";
 
 
 const geistSans = Geist({
@@ -32,8 +33,12 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
-        <SessionWrapper>{children}</SessionWrapper>
+        <ThemeProvider>
+          <SessionWrapper>{children}</SessionWrapper>
+        </ThemeProvider>
       </body>
     </html>
   );
 }
+
+//code to seed the DB: curl.exe -X POST "https://www.ssp4you.com/api/admin/seed" -H "Cookie: SSP_AUTH_TOKEN=YOUR_FULL_TOKEN"
