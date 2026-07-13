@@ -20,12 +20,14 @@ function buildDeleteHeaders() {
   ];
 
   const secureAttr = AUTH_COOKIE_SECURE ? "; Secure" : "";
-  const shared = `Domain=${AUTH_COOKIE_DOMAIN}; Path=/; Max-Age=0; SameSite=Lax${secureAttr}`;
   const hostOnly = `Path=/; Max-Age=0; SameSite=Lax${secureAttr}`;
+  const shared = AUTH_COOKIE_DOMAIN
+    ? `Domain=${AUTH_COOKIE_DOMAIN}; Path=/; Max-Age=0; SameSite=Lax${secureAttr}`
+    : null;
 
   const headers: string[] = [];
   for (const n of names) {
-    headers.push(`${n}=; ${shared}`);
+    if (shared) headers.push(`${n}=; ${shared}`);
     headers.push(`${n}=; ${hostOnly}`);
   }
   return headers;

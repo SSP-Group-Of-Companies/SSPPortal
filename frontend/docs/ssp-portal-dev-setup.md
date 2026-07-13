@@ -94,3 +94,9 @@ const me = await res.json();
 ## Production note
 
 In production the portal and subapps sit on real HTTPS hosts. The same cookie-sharing idea applies via a shared parent domain (`AUTH_COOKIE_DOMAIN`) and Secure cookies. Locally, hostname `localhost` + HTTP replaces that setup.
+
+## Vercel preview (`*.vercel.app`)
+
+Do **not** set `AUTH_COOKIE_DOMAIN=vercel.app`. That domain is on the [Public Suffix List](https://publicsuffix.org/), so browsers refuse the cookie and login appears to succeed then bounce back to `/login`.
+
+For a single-host preview deploy, leave `AUTH_COOKIE_DOMAIN` unset (host-only cookie on `sspportal-dev.vercel.app`). For cookie sharing with other preview apps, put the portal on a custom subdomain of your own domain (e.g. `dev.ssp4you.com`) and set `AUTH_COOKIE_DOMAIN=ssp4you.com`.

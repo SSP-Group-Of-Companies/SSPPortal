@@ -4,8 +4,21 @@ export const NEXT_PUBLIC_ORIGIN = process.env.NEXT_PUBLIC_ORIGIN!;
 // Cookie shared across sub‑apps
 export const AUTH_COOKIE_NAME =
   process.env.AUTH_COOKIE_NAME! || "SSP_AUTH_TOKEN";
-export const AUTH_COOKIE_DOMAIN =
-  process.env.AUTH_COOKIE_DOMAIN! || "localhost";
+
+/**
+ * Parent domain for the shared session cookie (e.g. `ssp4you.com`, `localhost`).
+ * Leave unset for host-only cookies (required on `*.vercel.app` — browsers
+ * reject `Domain=vercel.app` because it is on the Public Suffix List).
+ */
+function resolveAuthCookieDomain(): string | undefined {
+  const raw = (process.env.AUTH_COOKIE_DOMAIN ?? "").trim().replace(/^\./, "");
+  if (!raw) return undefined;
+  // Public suffix — setting Domain= here makes the browser drop the cookie.
+  if (raw === "vercel.app" || raw.endsWith(".vercel.app")) return undefined;
+  return raw;
+}
+
+export const AUTH_COOKIE_DOMAIN = resolveAuthCookieDomain();
 
 // Secure cookies require HTTPS. Local HTTP (no Caddy) must set this false.
 export const AUTH_COOKIE_SECURE = (NEXT_PUBLIC_ORIGIN ?? "").startsWith(

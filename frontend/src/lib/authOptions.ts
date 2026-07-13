@@ -73,11 +73,12 @@ export const authOptions: AuthOptions = {
   session: { strategy: "jwt", maxAge: 60 * 60 * 24 * 7 }, // 7 days
   jwt: { secret: NEXTAUTH_SECRET },
   cookies: {
-    // The one cookie all apps will share
+    // The one cookie all apps will share. Omit `domain` for host-only cookies
+    // (Vercel preview URLs cannot use Domain=vercel.app — PSL block).
     sessionToken: {
       name: AUTH_COOKIE_NAME,
       options: {
-        domain: AUTH_COOKIE_DOMAIN,
+        ...(AUTH_COOKIE_DOMAIN ? { domain: AUTH_COOKIE_DOMAIN } : {}),
         path: "/",
         httpOnly: true,
         sameSite: "lax",
