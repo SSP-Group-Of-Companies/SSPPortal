@@ -6,6 +6,7 @@ import connectDB from "@/lib/db";
 import Company from "@/models/Company";
 import Department from "@/models/Department";
 import App from "@/models/App";
+import User from "@/models/User";
 import { logAudit } from "@/lib/platform/audit";
 
 /**
@@ -24,13 +25,25 @@ import { logAudit } from "@/lib/platform/audit";
  * if missing — nothing an admin has since edited is overwritten.
  */
 
+/**
+ * Canonical company codes — unified with DriveDock's production slugs
+ * (stored in every OnboardingTracker) so the whole ecosystem shares one
+ * vocabulary and no integration ever needs a mapping table.
+ */
 const COMPANIES = [
-  { code: "ssp-truckline", name: "SSP Truckline Inc", country: "CA" },
-  { code: "ssp-trucklines", name: "SSP Trucklines Inc", country: "US" },
-  { code: "nesh", name: "New England Steel Haulers", country: "CA" },
-  { code: "fellowstrans", name: "FellowsTrans Inc", country: "CA" },
+  { code: "ssp-ca", name: "SSP Truckline Inc", country: "CA" },
+  { code: "ssp-us", name: "SSP Trucklines Inc", country: "US" },
+  { code: "nesh", name: "New England Steel Haulers Inc", country: "CA" },
+  { code: "fellowtrans", name: "FellowsTrans Inc", country: "CA" },
   { code: "webfreight", name: "Web Freight Inc", country: "CA" },
 ];
+
+/** One-time migration: early portal codes → canonical DriveDock slugs. */
+const LEGACY_CODE_MIGRATIONS: Record<string, string> = {
+  "ssp-truckline": "ssp-ca",
+  "ssp-trucklines": "ssp-us",
+  fellowstrans: "fellowtrans",
+};
 
 const DEPARTMENTS = [
   { code: "safety", name: "Safety", description: "Driver compliance, onboarding, and safety operations" },
@@ -75,6 +88,26 @@ export async function POST(req: NextRequest) {
 
   await connectDB();
   const created = { companies: 0, departments: 0, apps: 0 };
+  const migrated = { companies: 0, users: 0 };
+
+  // Migrate legacy company codes to the canonical (DriveDock-aligned) slugs
+  // before upserting, so re-running the seed converges instead of duplicating.
+  for (const [oldCode, newCode] of Object.entries(LEGACY_CODE_MIGRATIONS)) {
+    const clash = await Company.exists({ code: newCode });
+    const legacy = await Company.findOne({ code: oldCode });
+    if (legacy) {
+      if (clash) {
+        // Both exist (shouldn't happen) — drop the legacy row, keep canonical.
+        await Company.deleteOne({ code: oldCode });
+      } else {
+        legacy.code = newCode;
+        await legacy.save();
+      }
+      migrated.companies++;
+    }
+    const res = await User.updateMany({ companyCode: oldCode }, { $set: { companyCode: newCode } });
+    migrated.users += res.modifiedCount;
+  }
 
   for (const c of COMPANIES) {
     // Insert if missing; always sync canonical name/country from seed so factual
@@ -106,8 +139,8 @@ export async function POST(req: NextRequest) {
     action: "platform.seeded",
     actorEmail: actor.email,
     targetType: "platform",
-    meta: created,
+    meta: { ...created, migrated },
   });
 
-  return NextResponse.json({ ok: true, created });
+  return NextResponse.json({ ok: true, created, migrated });
 }
