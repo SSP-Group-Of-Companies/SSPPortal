@@ -5,7 +5,12 @@ export const NEXT_PUBLIC_ORIGIN = process.env.NEXT_PUBLIC_ORIGIN!;
 export const AUTH_COOKIE_NAME =
   process.env.AUTH_COOKIE_NAME! || "SSP_AUTH_TOKEN";
 export const AUTH_COOKIE_DOMAIN =
-  process.env.AUTH_COOKIE_DOMAIN! || ".sspportal.lvh.me";
+  process.env.AUTH_COOKIE_DOMAIN! || "localhost";
+
+// Secure cookies require HTTPS. Local HTTP (no Caddy) must set this false.
+export const AUTH_COOKIE_SECURE = (NEXT_PUBLIC_ORIGIN ?? "").startsWith(
+  "https://",
+);
 
 // NextAuth
 export const NEXTAUTH_URL = process.env.NEXTAUTH_URL;

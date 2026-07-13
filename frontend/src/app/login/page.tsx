@@ -4,7 +4,10 @@ import { Suspense, useMemo, useEffect, useState } from "react";
 import { signIn, useSession } from "next-auth/react";
 import Image from "next/image";
 import { useSearchParams, useRouter } from "next/navigation";
-import { NEXT_PUBLIC_ALLOWED_CALLBACK_HOSTS, NEXT_PUBLIC_ORIGIN } from "../config/env";
+import {
+  NEXT_PUBLIC_ALLOWED_CALLBACK_HOSTS,
+  NEXT_PUBLIC_ORIGIN,
+} from "../config/env";
 
 /** Only allow callback URLs on the portal itself or whitelisted subapp hosts. */
 function isAllowedCallback(urlStr: string | null): string | null {
@@ -16,7 +19,15 @@ function isAllowedCallback(urlStr: string | null): string | null {
   try {
     const url = new URL(urlStr);
 
-    if (url.protocol !== "https:") return null;
+    // Allow http on localhost (no Caddy); require https everywhere else.
+    if (url.protocol !== "https:" && url.protocol !== "http:") return null;
+    if (
+      url.protocol === "http:" &&
+      url.hostname !== "localhost" &&
+      url.hostname !== "127.0.0.1"
+    ) {
+      return null;
+    }
 
     const allowedHosts = (NEXT_PUBLIC_ALLOWED_CALLBACK_HOSTS ?? "")
       .split(",")
@@ -28,7 +39,9 @@ function isAllowedCallback(urlStr: string | null): string | null {
 
     const hostname = url.hostname;
 
-    const hostnameAllowed = hostname === portalHostname || allowedHosts.some((h) => hostname === h || hostname.endsWith(`.${h}`));
+    const hostnameAllowed =
+      hostname === portalHostname ||
+      allowedHosts.some((h) => hostname === h || hostname.endsWith(`.${h}`));
 
     if (!hostnameAllowed) return null;
 
@@ -109,7 +122,12 @@ function LoginPageInner() {
             disabled={signingIn || status === "loading"}
             className="focus-ring mt-8 flex w-full items-center justify-center gap-2.5 rounded-lg bg-(--color-ssp-ink-900) px-4 py-3 text-sm font-semibold text-white transition hover:bg-(--color-ssp-ink-800) disabled:opacity-70"
           >
-            <Image src="/images/microsoft-logo.png" alt="" width={18} height={18} />
+            <Image
+              src="/images/microsoft-logo.png"
+              alt=""
+              width={18}
+              height={18}
+            />
             {signingIn ? "Redirecting to Microsoft…" : "Sign in with Microsoft"}
           </button>
 
@@ -120,7 +138,8 @@ function LoginPageInner() {
         </div>
 
         <footer className="mt-10 text-center text-xs text-(--color-subtle)">
-          © {new Date().getFullYear()} SSP Group of Companies · Internal systems — authorized users only
+          © {new Date().getFullYear()} SSP Group of Companies · Internal systems
+          — authorized users only
         </footer>
       </main>
     </div>

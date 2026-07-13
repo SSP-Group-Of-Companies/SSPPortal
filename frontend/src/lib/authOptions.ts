@@ -6,11 +6,16 @@ import {
   AZURE_AD_TENANT_ID,
   AUTH_COOKIE_DOMAIN,
   AUTH_COOKIE_NAME,
+  AUTH_COOKIE_SECURE,
   NEXTAUTH_SECRET,
   NEXT_PUBLIC_ALLOWED_CALLBACK_HOSTS,
   NEXT_PUBLIC_ORIGIN,
 } from "@/app/config/env";
-import { provisionUser, getUserByAzureId, toClaims } from "@/lib/platform/users";
+import {
+  provisionUser,
+  getUserByAzureId,
+  toClaims,
+} from "@/lib/platform/users";
 import { logAudit } from "@/lib/platform/audit";
 
 /**
@@ -22,7 +27,9 @@ import { logAudit } from "@/lib/platform/audit";
  * (open-redirect protection on the company's central login).
  */
 function isAllowedRedirectHost(hostname: string): boolean {
-  const portalHostname = NEXT_PUBLIC_ORIGIN ? new URL(NEXT_PUBLIC_ORIGIN).hostname : "";
+  const portalHostname = NEXT_PUBLIC_ORIGIN
+    ? new URL(NEXT_PUBLIC_ORIGIN).hostname
+    : "";
   if (hostname === portalHostname) return true;
   return (NEXT_PUBLIC_ALLOWED_CALLBACK_HOSTS ?? "")
     .split(",")
@@ -74,7 +81,7 @@ export const authOptions: AuthOptions = {
         path: "/",
         httpOnly: true,
         sameSite: "lax",
-        secure: true,
+        secure: AUTH_COOKIE_SECURE,
       },
     },
   },
@@ -86,7 +93,12 @@ export const authOptions: AuthOptions = {
     async signIn({ user, profile }) {
       const p = (profile ?? {}) as AzureProfile;
       const azureId = p.oid || p.sub || user.id;
-      const email = (p.email || p.preferred_username || user.email || "").toLowerCase();
+      const email = (
+        p.email ||
+        p.preferred_username ||
+        user.email ||
+        ""
+      ).toLowerCase();
       if (!azureId || !email) return false;
 
       const record = await provisionUser({
@@ -115,7 +127,13 @@ export const authOptions: AuthOptions = {
         const p = (profile ?? {}) as AzureProfile;
         const azureId = p.oid || p.sub || user?.id || token.sub || "";
         token.userId = azureId;
-        token.email = (p.email || p.preferred_username || user?.email || token.email || "").toLowerCase();
+        token.email = (
+          p.email ||
+          p.preferred_username ||
+          user?.email ||
+          token.email ||
+          ""
+        ).toLowerCase();
         token.name = p.name || user?.name || token.name;
         token.picture = token.picture ?? undefined;
 
@@ -145,11 +163,17 @@ export const authOptions: AuthOptions = {
       // which risks filing the user under the wrong key. If no record is
       // found here, the session simply carries no elevated claims until the
       // user signs in again — a clear, correct outcome rather than a guess.
-      const refreshedAt = typeof token.claimsRefreshedAt === "number" ? token.claimsRefreshedAt : 0;
+      const refreshedAt =
+        typeof token.claimsRefreshedAt === "number"
+          ? token.claimsRefreshedAt
+          : 0;
       const now = Math.floor(Date.now() / 1000);
       if (now - refreshedAt > CLAIMS_REFRESH_SECONDS) {
         try {
-          const azureId = (typeof token.userId === "string" && token.userId) || token.sub || "";
+          const azureId =
+            (typeof token.userId === "string" && token.userId) ||
+            token.sub ||
+            "";
           const record = azureId ? await getUserByAzureId(azureId) : null;
 
           if (record) {
@@ -171,16 +195,23 @@ export const authOptions: AuthOptions = {
 
     async session({ session, token }) {
       if (session.user) {
-        const id = (typeof token.userId === "string" && token.userId) || (typeof token.sub === "string" ? token.sub : "");
+        const id =
+          (typeof token.userId === "string" && token.userId) ||
+          (typeof token.sub === "string" ? token.sub : "");
         session.user.id = id;
         session.user.email = token.email;
         session.user.name = token.name;
         session.user.image = token.picture;
-        session.user.uid = typeof token.uid === "string" ? token.uid : undefined;
-        session.user.role = typeof token.role === "string" ? token.role : "member";
-        session.user.status = typeof token.status === "string" ? token.status : "active";
-        session.user.companyCode = typeof token.companyCode === "string" ? token.companyCode : "";
-        session.user.departmentCode = typeof token.departmentCode === "string" ? token.departmentCode : "";
+        session.user.uid =
+          typeof token.uid === "string" ? token.uid : undefined;
+        session.user.role =
+          typeof token.role === "string" ? token.role : "member";
+        session.user.status =
+          typeof token.status === "string" ? token.status : "active";
+        session.user.companyCode =
+          typeof token.companyCode === "string" ? token.companyCode : "";
+        session.user.departmentCode =
+          typeof token.departmentCode === "string" ? token.departmentCode : "";
       }
       return session;
     },
